@@ -196,6 +196,7 @@ export default function AdminEventsPage() {
           ))}
         </div>
 
+        {/* Tabs */}
         <Tabs defaultValue="events" className="space-y-6">
           <TabsList className="grid w-full grid-cols-4 max-w-lg">
             <TabsTrigger value="events">Kegiatan</TabsTrigger>
@@ -204,6 +205,7 @@ export default function AdminEventsPage() {
             <TabsTrigger value="reports">Laporan</TabsTrigger>
           </TabsList>
 
+          {/* Kegiatan Tab */}
           <TabsContent value="events" className="space-y-6">
             <Card className="border-0 shadow-lg">
               <CardHeader>
@@ -239,71 +241,66 @@ export default function AdminEventsPage() {
               <CardContent>
                 <div className="space-y-4">
                   {events.map((event) => (
-                    <div key={event.id} className="p-6 border rounded-lg hover:shadow-md transition-shadow">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <h3 className="text-xl font-bold text-gray-900">{event.title}</h3>
-                            {getStatusBadge(event.status)}
-                            <Badge variant="outline">{event.category}</Badge>
+                    <div key={event.id} className="p-6 border rounded-lg hover:shadow-md transition-shadow flex justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-3 mb-2">
+                          <h3 className="text-xl font-bold text-gray-900">{event.title}</h3>
+                          {getStatusBadge(event.status)}
+                          <Badge variant="outline">{event.category}</Badge>
+                        </div>
+                        <p className="text-gray-600 mb-3">{event.description}</p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                          <div className="flex items-center space-x-2">
+                            <Calendar className="h-4 w-4 text-gray-400" />
+                            <span>{event.date} • {event.time}</span>
                           </div>
-                          <p className="text-gray-600 mb-3">{event.description}</p>
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                            <div className="flex items-center space-x-2">
-                              <Calendar className="h-4 w-4 text-gray-400" />
-                              <span>{event.date} • {event.time}</span>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <MapPin className="h-4 w-4 text-gray-400" />
-                              <span>{event.location}</span>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <Users className="h-4 w-4 text-gray-400" />
-                              <span>{event.registered}/{event.capacity} peserta</span>
-                            </div>
+                          <div className="flex items-center space-x-2">
+                            <MapPin className="h-4 w-4 text-gray-400" />
+                            <span>{event.location}</span>
                           </div>
-
-                          <div className="mt-4">
-                            <div className="flex justify-between text-sm mb-1">
-                              <span>Kapasitas: {getCapacityPercentage(event.registered, event.capacity)}%</span>
-                              <span>{event.capacity - event.registered} slot tersisa</span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div
-                                className="bg-gradient-to-r from-emerald-500 to-blue-500 h-2 rounded-full transition-all duration-500"
-                                style={{ width: `${getCapacityPercentage(event.registered, event.capacity)}%` }}
-                              ></div>
-                            </div>
+                          <div className="flex items-center space-x-2">
+                            <Users className="h-4 w-4 text-gray-400" />
+                            <span>{event.registered}/{event.capacity} peserta</span>
                           </div>
                         </div>
-
-                        <div className="flex flex-col space-y-2 ml-4">
-                          <Button variant="outline" size="sm">
-                            <Eye className="h-4 w-4 mr-1" />
-                            Detail
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            <Edit className="h-4 w-4 mr-1" />
-                            Edit
-                          </Button>
-                          {event.status === "pending" && (
-                            <>
-                              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700">
-                                <CheckCircle className="h-4 w-4 mr-1" />
-                                Approve
-                              </Button>
-                              <Button variant="outline" size="sm">
-                                <XCircle className="h-4 w-4 mr-1" />
-                                Tolak
-                              </Button>
-                            </>
-                          )}
-                          <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
-                            <Trash2 className="h-4 w-4 mr-1" />
-                            Hapus
-                          </Button>
+                        <div className="mt-4">
+                          <div className="flex justify-between text-sm mb-1">
+                            <span>Kapasitas: {getCapacityPercentage(event.registered, event.capacity)}%</span>
+                            <span>{event.capacity - event.registered} slot tersisa</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                              className="bg-gradient-to-r from-emerald-500 to-blue-500 h-2 rounded-full transition-all duration-500"
+                              style={{ width: `${getCapacityPercentage(event.registered, event.capacity)}%` }}
+                            />
+                          </div>
                         </div>
+                      </div>
+                      <div className="flex flex-col space-y-2 ml-4">
+                        <Button variant="outline" size="sm">
+                          <Eye className="h-4 w-4 mr-1" />
+                          Detail
+                        </Button>
+                        <Button variant="outline" size="sm">
+                          <Edit className="h-4 w-4 mr-1" />
+                          Edit
+                        </Button>
+                        {event.status === "pending" && (
+                          <>
+                            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700">
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Approve
+                            </Button>
+                            <Button variant="outline" size="sm">
+                              <XCircle className="h-4 w-4 mr-1" />
+                              Tolak
+                            </Button>
+                          </>
+                        )}
+                        <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Hapus
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -312,6 +309,7 @@ export default function AdminEventsPage() {
             </Card>
           </TabsContent>
 
+          {/* Categories Tab */}
           <TabsContent value="categories" className="space-y-6">
             <Card className="border-0 shadow-lg">
               <CardHeader>
@@ -354,6 +352,7 @@ export default function AdminEventsPage() {
             </Card>
           </TabsContent>
 
+          {/* Calendar Tab */}
           <TabsContent value="calendar" className="space-y-6">
             <Card className="border-0 shadow-lg">
               <CardHeader>
@@ -374,6 +373,7 @@ export default function AdminEventsPage() {
             </Card>
           </TabsContent>
 
+          {/* Reports Tab */}
           <TabsContent value="reports" className="space-y-6">
             <Card className="border-0 shadow-lg">
               <CardHeader>
@@ -418,4 +418,10 @@ export default function AdminEventsPage() {
                   </div>
                 </div>
               </CardContent>
-            \
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  )
+}
