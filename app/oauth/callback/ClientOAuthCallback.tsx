@@ -1,27 +1,31 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 
 export default function ClientOAuthCallback() {
   const router = useRouter()
-  const searchParams = useSearchParams()
 
   useEffect(() => {
-    if (!searchParams) return
+    const fetchMe = async () => {
+      try {
+        const res = await fetch('http://localhost:8080/me', {
+          credentials: 'include',
+        })
 
-    const token = searchParams.get('token')
-    const email = searchParams.get('email')
-    const name = searchParams.get('name') || email?.split('@')[0]
-    const role = (searchParams.get('role') as 'user' | 'admin') || 'user'
+        if (!res.ok) throw new Error('Not authenticated')
 
-    if (token && email) {
-      localStorage.setItem('token', token)
-      const userData = { id: '1', name: name || 'User', email, role, avatar: '/placeholder.svg' }
-      localStorage.setItem('user', JSON.stringify(userData))
-      router.push('/')
+        const data = await res.json()
+        localStorage.setItem('user', JSON.stringify(data.user))
+        router.replace('/')
+      } catch (err) {
+        console.error(err)
+        router.replace('/login')
+      }
     }
-  }, [searchParams, router])
+
+    fetchMe()
+  }, [router])
 
   return <div>Memproses login...</div>
 }

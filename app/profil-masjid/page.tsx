@@ -81,6 +81,8 @@ export default function ProfilMasjidPage() {
     { jabatan: "Ketua Muslimah", nama: "Hj. Fatimah Zahra, S.Pd", pendidikan: "UIN Syarif Hidayatullah", pengalaman: "12 tahun pembinaan muslimah", icon: Heart },
     { jabatan: "Koordinator Pendidikan", nama: "Ustadz Yusuf Mansur, S.Pd.I", pendidikan: "LIPIA Jakarta", pengalaman: "18 tahun di bidang pendidikan", icon: GraduationCap },
   ]
+  const GOOGLE_MAPS_URL =
+  "https://www.google.com/maps/place/Masjid+Nurul+Huda+Tabanan"
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -356,13 +358,34 @@ export default function ProfilMasjidPage() {
                 Lokasi & Akses
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="aspect-video bg-gray-200 border-2 border-dashed rounded-xl flex items-center justify-center mb-8">
-                <p className="text-gray-500 text-center">Google Maps Integration</p>
+
+            <CardContent className="space-y-6">
+              {/* GOOGLE MAPS EMBED */}
+              <div className="aspect-video rounded-xl overflow-hidden border">
+                <iframe
+                  src="https://www.google.com/maps?q=Masjid+Nurul+Huda+Tabanan&output=embed"
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0 }}
+                  allowFullScreen
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
               </div>
-              <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-lg py-6">
-                <MapPin className="h-5 w-5 mr-3" />
-                Buka di Google Maps
+
+              {/* BUTTON BUKA GMAPS */}
+              <Button
+                asChild
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-lg py-6"
+              >
+                <a
+                  href="https://www.google.com/maps/place/Masjid+Nurul+Huda+Tabanan"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <MapPin className="h-5 w-5 mr-3" />
+                  Buka di Google Maps
+                </a>
               </Button>
             </CardContent>
           </Card>
