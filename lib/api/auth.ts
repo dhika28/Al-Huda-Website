@@ -12,31 +12,38 @@ export type RegisterPayload = {
 };
 
 // =================== LOGIN API ===================
+// =================== LOGIN API ===================
 export async function loginApi(
   payload: LoginPayload
-): Promise<{ success?: boolean; error?: string }> {
+): Promise<{ success?: boolean; error?: string; role?: string }> { // <--- Tambah return type role
   try {
     const res = await fetch("http://localhost:8080/login-local", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      credentials: "include", // 🔥 penting agar cookie JWT ikut dikirim
+      credentials: "include",
       body: JSON.stringify(payload),
     });
 
     if (!res.ok) {
-      const errText = await res.text();
-      return { error: errText || "Login gagal" };
+      // Parse error message dari JSON backend jika ada (lebih rapi)
+      const data = await res.json().catch(() => null); 
+      return { error: data?.error || "Login gagal" };
     }
 
-    // backend akan set cookie, jadi client cukup anggap login berhasil
-    return { success: true };
+    // --- PERUBAHAN UTAMA DISINI ---
+    // Kita ambil data JSON dari backend karena di sana ada info role
+    const data = await res.json(); 
+    
+    // Kembalikan role ke component pemanggil
+    return { success: true, role: data.user.role }; 
+    // -----------------------------
+
   } catch (err: any) {
     return { error: err.message || "Login gagal" };
   }
 }
-
 // =================== REGISTER API ===================
 export async function registerApi(
   payload: RegisterPayload
@@ -63,6 +70,7 @@ export async function registerApi(
 }
 
 // =================== ME API (profil otomatis) ===================
+// =================== ME API (profil otomatis) ===================
 export async function fetchProfile(): Promise<{
   user?: any;
   error?: string;
@@ -70,7 +78,7 @@ export async function fetchProfile(): Promise<{
   try {
     const res = await fetch("http://localhost:8080/me", {
       method: "GET",
-      credentials: "include", // kirim cookie ke backend
+      credentials: "include", 
     });
 
     if (!res.ok) {
@@ -79,7 +87,14 @@ export async function fetchProfile(): Promise<{
     }
 
     const data = await res.json();
-    return { user: data };
+    
+    // ⚠️ PERBAIKAN DISINI ⚠️
+    // Backend mengirim: { "user": { "id": 1, "role": "admin", ... } }
+    // Kalau kita return { user: data }, jadinya { user: { user: { ... } } } <-- SALAH
+    
+    // YANG BENAR:
+    return { user: data.user }; // Ambil property .user dari JSON backend
+    
   } catch (err: any) {
     return { error: err.message || "Gagal ambil profil" };
   }

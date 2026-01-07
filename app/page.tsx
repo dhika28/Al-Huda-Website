@@ -84,8 +84,8 @@ export default function HomePage() {
     async function fetchTotal() {
       try {
         const data = await getTotalDonations();
-        // Asumsikan API mengembalikan { total: number }
-        setTotalDonasi(data.total ?? 0);
+        const total = (data as any)?.total ?? (typeof data === "number" ? data : 0);
+        setTotalDonasi(total);
       } catch (error) {
         console.error("❌ Gagal fetch total donasi:", error);
       }
@@ -199,20 +199,9 @@ export default function HomePage() {
             <Link href="/laporan-keuangan" className="text-gray-700 hover:text-emerald-600 transition-colors">
               Laporan Keuangan
             </Link>
-            <Link href="/kontak" className="text-gray-700 hover:text-emerald-600 transition-colors">
-              Kontak
-            </Link>
 
             {user ? (
               <div className="flex items-center space-x-4">
-                {user.role === "admin" && (
-                  <Link href="/admin">
-                    <Button variant="outline" className="border-red-600 text-red-600 hover:bg-red-50">
-                      <Settings className="mr-2 h-4 w-4" />
-                      Admin Panel
-                    </Button>
-                  </Link>
-                )}
                 <Link href="/profile">
                   <Button variant="outline" className="flex items-center space-x-2">
                     <Users className="h-4 w-4" />

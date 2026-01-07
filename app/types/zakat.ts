@@ -30,4 +30,3 @@ export interface ZakatPayment {
   message: string | null;
   created_at: string;
 }
-

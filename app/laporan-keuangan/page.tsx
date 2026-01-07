@@ -505,20 +505,6 @@ export default function LaporanKeuanganPage() {
                 </div>
               </CardContent>
             </Card>
-
-            {/* Contact for Questions */}
-            <Card className="border-0 shadow-lg">
-              <CardHeader>
-                <CardTitle>Pertanyaan Keuangan?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-600 mb-4">Hubungi bendahara masjid untuk informasi lebih detail</p>
-                <Button variant="outline" className="w-full">
-                  <Calendar className="mr-2 h-4 w-4" />
-                  Jadwalkan Konsultasi
-                </Button>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>

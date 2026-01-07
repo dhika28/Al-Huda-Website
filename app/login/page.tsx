@@ -39,6 +39,7 @@ export default function AuthPage() {
   }
 
   // LOGIN handler
+// LOGIN handler
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoginError("")
@@ -48,12 +49,27 @@ export default function AuthPage() {
       return
     }
 
-    const success = await login(loginEmail, loginPassword)
-    if (success) {
+    // Pastikan fungsi login di useAuth mengembalikan object result (bukan cuma true/false)
+    const result = await login(loginEmail, loginPassword)
+
+    console.log("👉 HASIL LOGIN:", result) 
+    console.log("👉 ROLE:", result.role)
+    
+    // Cek jika result sukses
+    if (result.success) {
       showToast("Login berhasil!", "success")
-      router.push("/")
+      
+      // --- LOGIKA REDIRECT BARU DISINI ---
+      if (result.role === "admin") {
+        router.push("/admin") // Ganti sesuai route admin kamu
+      } else {
+        router.push("/") // Ganti sesuai route user kamu (atau "/")
+      }
+      // -----------------------------------
+      
     } else {
-      setLoginError("Email atau password salah")
+      // Tampilkan error dari backend jika ada
+      setLoginError(result.error || "Email atau password salah")
       showToast("Login gagal!", "error")
     }
   }

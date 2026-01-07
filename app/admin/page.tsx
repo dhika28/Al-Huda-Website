@@ -3,272 +3,191 @@
 import { useState } from "react"
 import Link from "next/link"
 import {
-  BarChart3,
   Users,
   DollarSign,
   Calendar,
   Truck,
   Bell,
-  Settings,
-  FileText,
   Plus,
   Download,
   Search,
-  Menu,
   Home,
-  HandHeart,
-  Calculator,
-  ChurchIcon as Mosque,
-  Clock,
-  AlertTriangle,
   Heart,
+  AlertTriangle,
+  HandHeart,
+  Clock,
+  BarChart3,
 } from "lucide-react"
+
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+
+/* =======================
+   DUMMY DATA
+======================= */
+const chartData = [
+  { name: "Jan", total: 20 },
+  { name: "Feb", total: 35 },
+  { name: "Mar", total: 28 },
+  { name: "Apr", total: 45 },
+  { name: "Mei", total: 38 },
+  { name: "Jun", total: 50 },
+]
+
+const COLORS = ["#10b981", "#059669", "#047857", "#065f46", "#064e3b", "#064e3b"] // Gradient hijau emerald
 
 export default function AdminDashboard() {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      minimumFractionDigits: 0,
-    }).format(amount)
-  }
-
-  const sidebarItems = [
-    { icon: <BarChart3 className="h-5 w-5" />, label: "Dashboard", href: "/admin", active: true },
-    { icon: <Users className="h-5 w-5" />, label: "Manajemen Jamaah", href: "/admin/users" },
-    { icon: <HandHeart className="h-5 w-5" />, label: "Donasi & Infaq", href: "/admin/donations" },
-    { icon: <Calculator className="h-5 w-5" />, label: "Zakat", href: "/admin/zakat" },
-    { icon: <Mosque className="h-5 w-5" />, label: "Qurban", href: "/admin/qurban" },
-    { icon: <Truck className="h-5 w-5" />, label: "Ambulan", href: "/admin/ambulance" },
-    { icon: <Clock className="h-5 w-5" />, label: "Jadwal Sholat", href: "/admin/prayer-times" },
-    { icon: <Calendar className="h-5 w-5" />, label: "Kegiatan", href: "/admin/events" },
-    { icon: <FileText className="h-5 w-5" />, label: "Laporan Keuangan", href: "/admin/reports" },
-    { icon: <Settings className="h-5 w-5" />, label: "Pengaturan", href: "/admin/settings" },
-  ]
-
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
-      <div
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}
-      >
-        <div className="flex items-center justify-center h-16 px-4 bg-gradient-to-r from-emerald-600 to-blue-600">
-          <div className="flex items-center space-x-3">
-            <div className="h-8 w-8 rounded-full bg-white flex items-center justify-center">
-              <Mosque className="h-5 w-5 text-emerald-600" />
-            </div>
-            <div className="text-white">
-              <h1 className="text-lg font-bold">Admin Panel</h1>
-              <p className="text-xs text-emerald-100">Masjid Al Huda</p>
-            </div>
+    <>
+      <div className="flex flex-col h-screen bg-gray-50">
+
+        {/* MAIN CONTENT - Scrollable & Full Width */}
+        <main className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-8">
+          {/* STAT CARDS - Lebih rapat & modern */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <StatCard title="Users" value="1.234" icon={<Users className="h-5 w-5" />} color="text-blue-600" />
+            <StatCard title="Donasi" value="Rp 125 Jt" icon={<DollarSign className="h-5 w-5" />} color="text-emerald-600" />
+            <StatCard title="Zakat" value="Rp 35 Jt" icon={<Heart className="h-5 w-5" />} color="text-purple-600" />
+            <StatCard title="Kegiatan" value="12" icon={<Calendar className="h-5 w-5" />} color="text-orange-600" />
+            <StatCard title="Qurban" value="27" icon={<HandHeart className="h-5 w-5" />} color="text-pink-600" />
+            <StatCard title="Ambulance" value="3" icon={<Truck className="h-5 w-5" />} color="text-indigo-600" />
           </div>
-        </div>
 
-        <nav className="mt-8">
-          <div className="px-4 space-y-2">
-            {sidebarItems.map((item, index) => (
-              <Link
-                key={index}
-                href={item.href}
-                className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                  item.active
-                    ? "bg-emerald-50 text-emerald-700 border-r-2 border-emerald-600"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                }`}
-              >
-                {item.icon}
-                <span className="font-medium">{item.label}</span>
-              </Link>
-            ))}
-          </div>
-        </nav>
-
-        <div className="absolute bottom-4 left-4 right-4">
-          <div className="bg-gradient-to-r from-emerald-50 to-blue-50 p-4 rounded-lg">
-            <div className="flex items-center space-x-3">
-              <Avatar className="h-10 w-10">
-                <AvatarImage src="/placeholder.svg?height=40&width=40" />
-                <AvatarFallback className="bg-emerald-100 text-emerald-700">AD</AvatarFallback>
-              </Avatar>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">Admin User</p>
-                <p className="text-xs text-gray-600">Super Admin</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 lg:ml-0">
-        {/* Header */}
-        <header className="bg-white shadow-sm border-b">
-          <div className="flex items-center justify-between px-6 py-4">
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(!sidebarOpen)}>
-                <Menu className="h-6 w-6" />
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-                <p className="text-gray-600">Selamat datang kembali, Admin</p>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input placeholder="Cari..." className="pl-10 w-64" />
-              </div>
-              <Button variant="outline" size="icon" className="relative">
-                <Bell className="h-5 w-5" />
-                <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-xs flex items-center justify-center">
-                  3
-                </Badge>
-              </Button>
-              <Link href="/">
-                <Button variant="outline">
-                  <Home className="mr-2 h-4 w-4" />
-                  Lihat Website
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </header>
-
-        {/* Dashboard Content */}
-        <main className="p-6">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <Card className="border-0 shadow-lg">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
+          {/* CHART & SIDE PANEL */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* CHART - Lebih besar & cantik */}
+            <Card className="lg:col-span-2 border-0 shadow-lg">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                  <BarChart3 className="h-6 w-6 text-emerald-600" />
+                  Statistik Kegiatan (6 Bulan Terakhir)
+                </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">1,234</div>
-                <p className="text-xs text-muted-foreground">+20.1% from last month</p>
+              <CardContent className="h-[360px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip
+                      contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+                    />
+                    <Bar dataKey="total" radius={[12, 12, 0, 0]}>
+                      {chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-lg">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Donations</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">Rp 125,000,000</div>
-                <p className="text-xs text-muted-foreground">+12.5% from last month</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Zakat Collected</CardTitle>
-                <Heart className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">Rp 35,000,000</div>
-                <p className="text-xs text-muted-foreground">+8.2% from last month</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Events</CardTitle>
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">12</div>
-                <p className="text-xs text-muted-foreground">3 events this week</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Recent Activities */}
-            <div className="lg:col-span-2">
+            {/* SIDE PANEL */}
+            <div className="space-y-6">
               <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle>Recent Activities</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center">
-                      <div className="ml-4 space-y-1">
-                        <p className="text-sm font-medium leading-none">New donation received</p>
-                        <p className="text-sm text-muted-foreground">Rp 500,000 from Ahmad Suharto</p>
-                      </div>
-                      <div className="ml-auto font-medium">+Rp 500,000</div>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="ml-4 space-y-1">
-                        <p className="text-sm font-medium leading-none">Zakat payment</p>
-                        <p className="text-sm text-muted-foreground">Rp 35,000 from Siti Nurhaliza</p>
-                      </div>
-                      <div className="ml-auto font-medium">+Rp 35,000</div>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="ml-4 space-y-1">
-                        <p className="text-sm font-medium leading-none">New user registered</p>
-                        <p className="text-sm text-muted-foreground">Muhammad Ridwan joined</p>
-                      </div>
-                      <div className="ml-auto font-medium">+1</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Pending Approvals */}
-            <div>
-              <Card className="border-0 shadow-lg mb-6">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <AlertTriangle className="h-5 w-5 text-orange-600" />
-                    <span>Perlu Persetujuan</span>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                    <AlertTriangle className="h-5 w-5 text-orange-500" />
+                    Perlu Tindakan Segera
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">{/* Pending Approvals List */}</div>
+                <CardContent className="text-sm text-gray-600 space-y-2">
+                  <p>• Verifikasi pembayaran qurban</p>
+                  <p>• Jadwal ambulance minggu ini</p>
+                  <p>• Review proposal kegiatan baru</p>
                 </CardContent>
               </Card>
 
-              {/* Quick Actions */}
               <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle>Aksi Cepat</CardTitle>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base font-semibold">
+                    Aksi Cepat
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button className="w-full justify-start bg-emerald-600 hover:bg-emerald-700">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Tambah Kegiatan
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    <Download className="mr-2 h-4 w-4" />
-                    Export Laporan
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    <Bell className="mr-2 h-4 w-4" />
-                    Kirim Notifikasi
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Pengaturan Sistem
-                  </Button>
+                  <QuickButton icon={<Plus />} label="Tambah Kegiatan" primary />
+                  <QuickButton icon={<HandHeart />} label="Kelola Qurban" />
+                  <QuickButton icon={<Truck />} label="Kelola Ambulance" />
+                  <QuickButton icon={<Download />} label="Export Laporan" />
                 </CardContent>
               </Card>
             </div>
           </div>
         </main>
       </div>
-    </div>
+    </>
+  )
+}
+
+/* =======================
+   COMPONENTS - Dipercantik
+======================= */
+
+function StatCard({
+  title,
+  value,
+  icon,
+  color,
+}: {
+  title: string
+  value: string
+  icon: React.ReactNode
+  color: string
+}) {
+  return (
+    <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-sm font-medium text-gray-600">
+          {title}
+        </CardTitle>
+        <div className={color}>
+          {icon}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold text-gray-900">
+          {value}
+        </div>
+        <p className="text-xs text-gray-500 flex items-center gap-1 mt-2">
+          <Clock className="h-3 w-3" />
+          Update terbaru
+        </p>
+      </CardContent>
+    </Card>
+  )
+}
+
+function QuickButton({
+  icon,
+  label,
+  primary,
+}: {
+  icon: React.ReactNode
+  label: string
+  primary?: boolean
+}) {
+  return (
+    <Button
+      variant={primary ? "default" : "outline"}
+      className={`w-full justify-start h-11 ${
+        primary
+          ? "bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+          : "hover:bg-gray-50"
+      }`}
+    >
+      <span className="mr-3 h-5 w-5">{icon}</span>
+      {label}
+    </Button>
   )
 }
