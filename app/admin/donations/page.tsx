@@ -28,7 +28,8 @@ import {
   Phone,
   Mail,
   User,
-  Info
+  Info,
+  Edit
 } from "lucide-react";
 // Import Toast Library
 import { Toaster, toast } from "react-hot-toast"; 
@@ -215,11 +216,11 @@ export default function AdminDonationsPage() {
   const openEditModal = (program: Program) => { setEditingProgram(program); setIsModalOpen(true); };
 
   return (
-    <div className="w-full min-h-screen bg-slate-50/50 p-6 space-y-8 print:bg-white print:p-0">
+    <div className="w-full min-h-screen bg-slate-50/50 p-6 space-y-6 print:bg-white print:p-0">
       <Toaster position="top-center" reverseOrder={false} />
 
       {/* TOP SECTION */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 print:hidden">
+      <div className="flex items-center justify-between">
         <div>
           <h2 className="text-4xl font-bold tracking-tight text-slate-900">Kelola Donasi</h2>
           <p className="text-sm text-slate-500 mt-1">Pantau arus kas donasi, kelola program, dan cetak laporan keuangan.</p>
@@ -325,7 +326,7 @@ export default function AdminDonationsPage() {
 
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="h-8 w-auto px-2 text-xs border border-dashed border-slate-300 hover:border-emerald-500 hover:text-emerald-600 gap-1"><ArrowUpDown className="h-3 w-3" /><span className="hidden sm:inline">Ubah</span></Button>
+                                  <Button variant="ghost" size="sm" className="h-8 w-auto px-2 text-xs border border-dashed border-slate-300 hover:border-emerald-500 hover:text-emerald-600 gap-1"><Edit className="h-3 w-3" /><span className="hidden sm:inline">Status</span></Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-48">
                                   <DropdownMenuLabel>Update Status</DropdownMenuLabel>

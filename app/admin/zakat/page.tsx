@@ -472,8 +472,8 @@ export default function AdminZakatPage() {
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                             <Button variant="ghost" size="sm" className="h-8 w-auto px-2 text-xs border border-dashed border-slate-300 hover:border-emerald-500 hover:text-emerald-600 gap-1">
-                                                <ArrowUpDown className="h-3 w-3" />
-                                                <span className="hidden sm:inline">Ubah</span>
+                                                <Edit className="h-3 w-3" />
+                                                <span className="hidden sm:inline">Status</span>
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end" className="w-48">
