@@ -1,8 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-
-import { ArrowLeft, User, Calendar, Edit, Camera, Sparkles, TrendingUp } from "lucide-react"
+import { ArrowLeft, User, Calendar, Edit, Camera, TrendingUp } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -42,10 +41,12 @@ export default function ProfilePage() {
     },
   ]
 
+  // --- 1. FETCH PROFILE DATA ---
   useEffect(() => {
     const fetchProfile = async () => {
       setLoading(true)
       try {
+        // Endpoint Get Me (Sesuaikan jika backend Anda pakai /api/v1/me)
         const res = await fetch("http://localhost:8080/me", {
           method: "GET",
           credentials: "include",
@@ -62,10 +63,9 @@ export default function ProfilePage() {
             phone: user.phone || "-",
             address: user.address || "",
             avatar: user.avatar || "/placeholder.svg",
-            joinDate: user.joinDate || new Date().toISOString(),
+            joinDate: user.created_at || new Date().toISOString(),
             membershipType: user.membershipType || "Jamaah",
           })
-
           localStorage.setItem("user", JSON.stringify(user))
         }
       } catch (err) {
@@ -78,6 +78,7 @@ export default function ProfilePage() {
     fetchProfile()
   }, [])
 
+  // --- 2. FETCH ACTIVITIES ---
   useEffect(() => {
     if (!profileData.id) return;
     setLoadingActivities(true);
@@ -86,16 +87,15 @@ export default function ProfilePage() {
       try {
         const uid = Number(profileData.id);
 
+        // Fetch Donasi
         const res = await fetch(`http://localhost:8080/api/v1/user-donations?user_id=${uid}`, {
           credentials: "include",
         });
-
         let donations: any[] = [];
         if (res.ok) {
           const data = await res.json();
           donations = Array.isArray(data) ? data : [];
         }
-
         const mappedDonations = donations.map((d) => ({
           id: d.id,
           type: "donasi",
@@ -105,16 +105,15 @@ export default function ProfilePage() {
           created_at: d.created_at,
         }));
 
+        // Fetch Zakat
         const resZakat = await fetch(`http://localhost:8080/api/v1/zakat?user_id=${uid}`, {
           credentials: "include",
         });
-
         let zakat: any[] = [];
         if (resZakat.ok) {
           const data = await resZakat.json();
           zakat = Array.isArray(data) ? data : [];
         }
-
         const mappedZakat = zakat.map((z) => ({
           id: z.id,
           type: "zakat",
@@ -124,16 +123,15 @@ export default function ProfilePage() {
           created_at: z.created_at,
         }));
 
+        // Fetch Qurban
         const resQurban = await fetch(`http://localhost:8080/api/v1/qurban-history?user_id=${uid}`, {
           credentials: "include",
         });
-
         let qurban: any[] = [];
         if (resQurban.ok) {
           const data = await resQurban.json();
           qurban = Array.isArray(data) ? data : [];
         }
-
         const mappedQurban = qurban.map((q) => ({
           id: q.id,
           type: "qurban",
@@ -158,16 +156,18 @@ export default function ProfilePage() {
     fetchActivities();
   }, [profileData.id]);
 
+  // --- 3. SAVE PROFILE (PERBAIKAN DISINI) ---
   const saveProfile = async () => {
     try {
+      // PERBAIKAN: Tambahkan /api/v1/ sebelum users
       const res = await fetch(
-        `http://localhost:8080/user/${profileData.id}`,
+        `http://localhost:8080/api/v1/users/${profileData.id}`, 
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
-            full_name: profileData.name,
+            name: profileData.name, // Backend mengharapkan 'name' (cek user.go)
             email: profileData.email,
             phone: profileData.phone,
             address: profileData.address,
@@ -179,18 +179,27 @@ export default function ProfilePage() {
         const updatedData = await res.json()
         setProfileData((prev) => ({
           ...prev,
-          ...updatedData,
-          name: updatedData.full_name || updatedData.name || prev.name,
+          // Handle response backend bisa 'full_name' atau 'name'
+          name: updatedData.name || updatedData.full_name || prev.name,
+          email: updatedData.email || prev.email,
+          phone: updatedData.phone || prev.phone,
+          address: updatedData.address || prev.address,
         }))
-        localStorage.setItem("user", JSON.stringify(updatedData))
+        
+        // Update LocalStorage agar data persisten
+        const storedUser = JSON.parse(localStorage.getItem("user") || "{}")
+        const newUserObj = { ...storedUser, ...updatedData }
+        localStorage.setItem("user", JSON.stringify(newUserObj))
+        
         setIsEditing(false)
         alert("✅ Perubahan profil berhasil disimpan!")
       } else {
-        alert("❌ Gagal menyimpan profil")
+        const errData = await res.json()
+        alert(`❌ Gagal menyimpan profil: ${errData.error || res.statusText}`)
       }
     } catch (err) {
       console.error(err)
-      alert("⚠️ Terjadi kesalahan")
+      alert("⚠️ Terjadi kesalahan koneksi")
     }
   }
 
@@ -204,12 +213,12 @@ export default function ProfilePage() {
   const getTypeConfig = (type: string) => {
     const configs = {
       donasi: { 
-        color: "bg-gradient-to-r from-emerald-500 to-emerald-1000",
+        color: "bg-gradient-to-r from-emerald-500 to-emerald-600",
         lightBg: "bg-emerald-50",
         border: "border-emerald-200"
       },
       zakat: { 
-        color: "bg-gradient-to-r from-blue-500 to-blue-500",
+        color: "bg-gradient-to-r from-blue-500 to-blue-600",
         lightBg: "bg-blue-50",
         border: "border-blue-200"
       },
@@ -308,7 +317,7 @@ export default function ProfilePage() {
               <div className="mt-6 pt-6 border-t border-emerald-100">
                 <p className="text-sm text-slate-600 flex items-center justify-center gap-2">
                   <Calendar className="h-4 w-4 text-emerald-600" />
-                  Bergabung sejak {profileData.joinDate}
+                  Bergabung sejak {profileData.joinDate ? new Date(profileData.joinDate).getFullYear() : '-'}
                 </p>
               </div>
             </CardContent>

@@ -38,8 +38,9 @@ export default function KegiatanPage() {
   useEffect(() => {
     ActivityService.getAll()
       .then((res: any) => {
+        // Handle wrapper response
         const items: Activity[] = res?.data ?? res
-        setActivities(items)
+        setActivities(items || [])
       })
       .catch(console.error)
   }, [])
@@ -75,6 +76,20 @@ export default function KegiatanPage() {
         return <Award className="h-5 w-5 text-emerald-600" />
       default:
         return <Star className="h-5 w-5 text-emerald-600" />
+    }
+  }
+
+  // Helper untuk format tanggal
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "-"
+    try {
+        // Handle YYYY-MM-DD string or ISO
+        const date = new Date(dateString)
+        return date.toLocaleDateString("id-ID", {
+            day: "numeric", month: "long", year: "numeric"
+        })
+    } catch (e) {
+        return dateString
     }
   }
 
@@ -154,7 +169,7 @@ export default function KegiatanPage() {
                     {k.tanggal && (
                       <div className="flex items-center gap-3 text-gray-700">
                         <Calendar className="h-4 w-4 text-gray-500" />
-                        <span>{k.tanggal}</span>
+                        <span>{formatDate(k.tanggal)}</span>
                       </div>
                     )}
                     {k.waktu && (
@@ -212,11 +227,15 @@ export default function KegiatanPage() {
                       </div>
                     )}
 
-                    {k.fasilitas && k.fasilitas.length > 0 && (
+                    {/* ERROR FIX: Safe Map for Fasilitas String/Array */}
+                    {k.fasilitas && (
                       <div>
                         <p className="font-medium text-gray-900 mb-2">Fasilitas</p>
                         <div className="flex flex-wrap gap-2">
-                          {k.fasilitas.map((f, i) => (
+                          {(typeof k.fasilitas === 'string' 
+                              ? (k.fasilitas as string).split(',').map(s => s.trim()) 
+                              : Array.isArray(k.fasilitas) ? k.fasilitas : []
+                          ).map((f, i) => (
                             <Badge key={i} variant="secondary" className="text-xs">
                               {f}
                             </Badge>

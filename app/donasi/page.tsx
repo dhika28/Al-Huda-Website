@@ -9,6 +9,8 @@ import {
   Users,
   TrendingUp,
   CheckCircle,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,6 +30,7 @@ export default function DonasiPageClient() {
   const submitDonation = donationCtx?.submitDonation
   const isLoading = donationCtx?.isLoading || false
 
+  // --- STATE FORM DONASI ---
   const [selectedAmount, setSelectedAmount] = useState("")
   const [customAmount, setCustomAmount] = useState("")
   const [paymentMethod, setPaymentMethod] = useState("")
@@ -35,6 +38,24 @@ export default function DonasiPageClient() {
 
   const [openPopup, setOpenPopup] = useState(false)
   const [selectedProgram, setSelectedProgram] = useState<any>(null)
+
+  // --- STATE PAGINATION DONASI TERBARU ---
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 6 // Menampilkan 5 donasi per halaman
+
+  // Logika Pagination
+  const indexOfLastItem = currentPage * itemsPerPage
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage
+  const currentDonations = donations.slice(indexOfFirstItem, indexOfLastItem)
+  const totalPages = Math.ceil(donations.length / itemsPerPage)
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) setCurrentPage((prev) => prev + 1)
+  }
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) setCurrentPage((prev) => prev - 1)
+  }
 
   const quickAmounts = [
     { amount: "50000", label: "Rp 50.000" },
@@ -100,10 +121,10 @@ export default function DonasiPageClient() {
       <div className="container mx-auto px-4 py-10">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
 
-          {/* LEFT SECTION */}
+          {/* LEFT SECTION (TABS) */}
           <div className="lg:col-span-2">
             <Tabs defaultValue="quick" className="space-y-6">
-              {/* TABS */}
+              {/* TABS LIST */}
               <TabsList className="w-full grid grid-cols-2 bg-gray-100 p-1 rounded-xl">
                 <TabsTrigger value="quick" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Donasi Cepat</TabsTrigger>
                 <TabsTrigger value="program" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Pilih Program</TabsTrigger>
@@ -123,7 +144,6 @@ export default function DonasiPageClient() {
                   </CardHeader>
 
                   <CardContent className="space-y-6">
-
                     {/* NOMINAL */}
                     <div>
                       <Label className="text-base font-semibold">Nominal Donasi</Label>
@@ -156,7 +176,6 @@ export default function DonasiPageClient() {
                     {/* FORM DONATUR */}
                     <div className="space-y-4">
                       <Label className="text-base font-semibold">Data Donatur</Label>
-
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <Label>Nama Lengkap</Label>
@@ -167,12 +186,10 @@ export default function DonasiPageClient() {
                           <Input className="rounded-xl" value={donor.phone} onChange={(e) => setDonor({ ...donor, phone: e.target.value })} />
                         </div>
                       </div>
-
                       <div>
                         <Label>Email</Label>
                         <Input type="email" className="rounded-xl" value={donor.email} onChange={(e) => setDonor({ ...donor, email: e.target.value })} />
                       </div>
-
                       <div>
                         <Label>Pesan (Opsional)</Label>
                         <Textarea rows={3} className="rounded-xl" value={donor.message} onChange={(e) => setDonor({ ...donor, message: e.target.value })} />
@@ -201,29 +218,24 @@ export default function DonasiPageClient() {
                           <div className="bg-emerald-600 p-3 rounded-xl text-white">
                             <Target className="h-6 w-6" />
                           </div>
-
                           <div className="flex-1">
                             <h3 className="text-xl font-bold text-gray-900">{program.title}</h3>
                             <p className="text-sm text-gray-600 mt-1">{program.description}</p>
-
                             <div className="mt-4 space-y-3">
                               <div className="flex justify-between text-sm text-gray-700">
                                 <span>{formatCurrency(program.collected)}</span>
                                 <span>Target {formatCurrency(program.target)}</span>
                               </div>
-
                               <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
                                 <div
                                   className="bg-emerald-500 h-3 rounded-full transition-all duration-500"
                                   style={{ width: `${getProgress(program.collected, program.target)}%` }}
                                 ></div>
                               </div>
-
                               <div className="flex justify-between items-center mt-1">
                                 <span className="text-sm text-gray-600 flex items-center gap-2">
                                   <Users className="h-4 w-4" /> {program.donors || 0} donatur
                                 </span>
-
                                 <Button
                                   className="bg-emerald-600 hover:bg-emerald-700 rounded-xl"
                                   onClick={() => {
@@ -244,83 +256,97 @@ export default function DonasiPageClient() {
                   <p className="text-gray-500 text-center">Belum ada program donasi</p>
                 )}
               </TabsContent>
-              {/* Informasi Penting */}
+
+              {/* INFORMASI PENTING */}
               <div className="rounded-xl border bg-white shadow-sm p-6 mt-6">
                 <h4 className="text-lg font-semibold text-gray-900 mb-4">Informasi Penting</h4>
-
                 <ul className="space-y-4 text-sm text-gray-700">
                   <li className="flex items-start space-x-3">
-                    <div className="h-6 w-6 flex items-center justify-center bg-emerald-100 text-emerald-600 rounded-md">
-                      <CheckCircle className="h-4 w-4" />
-                    </div>
-                    <span>
-                      Seluruh donasi akan dicatat secara otomatis dan dapat dilihat pada menu <strong>Riwayat Donasi</strong>.
-                    </span>
+                    <div className="h-6 w-6 flex items-center justify-center bg-emerald-100 text-emerald-600 rounded-md"><CheckCircle className="h-4 w-4" /></div>
+                    <span>Seluruh donasi akan dicatat secara otomatis dan dapat dilihat pada menu <strong>Riwayat Donasi</strong>.</span>
                   </li>
-
                   <li className="flex items-start space-x-3">
-                    <div className="h-6 w-6 flex items-center justify-center bg-emerald-100 text-emerald-600 rounded-md">
-                      <CheckCircle className="h-4 w-4" />
-                    </div>
-                    <span>
-                      Donasi program akan disalurkan sesuai kebutuhan program terkait dan tidak dicampur dengan donasi umum.
-                    </span>
+                    <div className="h-6 w-6 flex items-center justify-center bg-emerald-100 text-emerald-600 rounded-md"><CheckCircle className="h-4 w-4" /></div>
+                    <span>Donasi program akan disalurkan sesuai kebutuhan program terkait.</span>
                   </li>
-
                   <li className="flex items-start space-x-3">
-                    <div className="h-6 w-6 flex items-center justify-center bg-emerald-100 text-emerald-600 rounded-md">
-                      <CheckCircle className="h-4 w-4" />
-                    </div>
-                    <span>
-                      Nominal donasi bersifat fleksibel. Tidak ada jumlah minimum ataupun maksimum.
-                    </span>
-                  </li>
-
-                  <li className="flex items-start space-x-3">
-                    <div className="h-6 w-6 flex items-center justify-center bg-emerald-100 text-emerald-600 rounded-md">
-                      <CheckCircle className="h-4 w-4" />
-                    </div>
-                    <span>
-                      Bukti donasi elektronik akan dikirim ke email setelah pembayaran berhasil.
-                    </span>
+                    <div className="h-6 w-6 flex items-center justify-center bg-emerald-100 text-emerald-600 rounded-md"><CheckCircle className="h-4 w-4" /></div>
+                    <span>Bukti donasi elektronik akan dikirim ke email setelah pembayaran berhasil.</span>
                   </li>
                 </ul>
               </div>
-
-
             </Tabs>
           </div>
 
-
-          {/* RIGHT SIDEBAR */}
+          {/* RIGHT SIDEBAR (DONASI TERBARU DENGAN PAGINATION) */}
           <div className="space-y-6">
-            {donations.length > 0 && (
+            <h3 className="font-semibold text-gray-800 text-lg flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-emerald-600"/> Donasi Terbaru
+            </h3>
+
+            {donations.length > 0 ? (
               <>
-                <h3 className="font-semibold text-gray-800 text-lg">Donasi Terbaru</h3>
-
-                {donations.map((donation, index) => (
-                  <Card key={index} className="border-0 shadow-sm rounded-xl p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                        <HandHeart className="h-5 w-5 text-emerald-600" />
-                      </div>
-
-                      <div className="flex-1">
-                        <div className="flex justify-between items-center">
-                          <p className="text-sm font-semibold text-gray-900">{donation.name}</p>
-                          <Badge className="text-xs bg-emerald-600 text-white">
-                            {formatCurrency(donation.amount)}
-                          </Badge>
+                <div className="space-y-4 min-h-[400px]">
+                  {currentDonations.map((donation, index) => (
+                    <Card key={index} className="border-0 shadow-sm rounded-xl p-4 bg-white hover:shadow-md transition-shadow">
+                      <div className="flex items-start gap-3">
+                        <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                          <HandHeart className="h-5 w-5 text-emerald-600" />
                         </div>
-                        <p className="text-xs text-gray-500">{new Date(donation.created_at || "").toLocaleString("id-ID")}</p>
-                        {donation.message && <p className="text-xs mt-1 italic text-gray-700">"{donation.message}"</p>}
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-start gap-2">
+                            <p className="text-sm font-semibold text-gray-900 truncate">{donation.name}</p>
+                            <Badge variant="secondary" className="text-[10px] bg-emerald-50 text-emerald-700 whitespace-nowrap">
+                              {formatCurrency(donation.amount)}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-0.5">{new Date(donation.created_at || "").toLocaleDateString("id-ID", {
+                            day: "numeric", month: "long", year: "numeric"
+                          })}</p>
+                          {donation.message && <p className="text-xs mt-2 italic text-gray-600 bg-gray-50 p-2 rounded-lg line-clamp-2">"{donation.message}"</p>}
+                        </div>
                       </div>
-                    </div>
-                  </Card>
-                ))}
+                    </Card>
+                  ))}
+                </div>
+
+                {/* CONTROLS PAGINATION */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={handlePrevPage} 
+                      disabled={currentPage === 1}
+                      className="text-gray-500 hover:text-emerald-600"
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" /> Prev
+                    </Button>
+                    
+                    <span className="text-xs font-medium text-gray-500">
+                      Hal. {currentPage} dari {totalPages}
+                    </span>
+
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={handleNextPage} 
+                      disabled={currentPage === totalPages}
+                      className="text-gray-500 hover:text-emerald-600"
+                    >
+                      Next <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                )}
               </>
+            ) : (
+              <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                <p className="text-sm text-gray-500">Belum ada donasi masuk</p>
+              </div>
             )}
           </div>
+
         </div>
       </div>
     </div>
