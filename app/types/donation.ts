@@ -31,3 +31,15 @@ export interface Donation {
   
   created_at?: string;
 }
+
+// app/types/donation.ts
+
+export interface DonationAllocation {
+  id?: number;
+  allocation_type: string; // 'classification' | 'operational'
+  category: string;
+  description: string;
+  amount: number;
+  date: string;
+  pic: string;
+}

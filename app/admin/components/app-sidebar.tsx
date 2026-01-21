@@ -59,7 +59,6 @@ const items = [
   { title: "Qurban", url: "/admin/qurban", icon: Beef },
   { title: "Ambulance", url: "/admin/ambulance", icon: Ambulance },
   { title: "Events", url: "/admin/events", icon: Calendar },
-  { title: "Services", url: "/admin/services", icon: Truck },
   { title: "Financial Reports", url: "/admin/financial-reports", icon: FileText },
   { title: "Settings", url: "/admin/settings", icon: Settings },
 ]

@@ -1,5 +1,7 @@
 import axios from "axios";
-import { Donation, Program } from "@/app/types/donation";
+import { Donation, Program, DonationAllocation } from "@/app/types/donation"; 
+// Pastikan Anda sudah menambahkan type DonationAllocation di types/donation.ts
+// Jika belum, lihat catatan di bawah kode ini.
 
 // ===============================
 // Base API URL
@@ -122,7 +124,7 @@ export async function getRecentDonations(): Promise<Donation[]> {
 // DONATION (ADMIN - MANAGE)
 // ======================================================
 
-// [BARU] Ambil SEMUA donasi untuk Tabel Admin
+// Ambil SEMUA donasi untuk Tabel Admin
 export async function getAllDonations(): Promise<Donation[]> {
   try {
     const res = await api.get("/donations"); // Route ini sudah ada di backend (GET)
@@ -133,11 +135,9 @@ export async function getAllDonations(): Promise<Donation[]> {
   }
 }
 
-// [BARU] Update Status Donasi Manual (Pending -> Success/Failed)
+// Update Status Donasi Manual (Pending -> Success/Failed)
 export async function updateDonationStatus(id: number, status: string) {
   try {
-    // Pastikan backend memiliki route PUT /donations/status?id=... atau sejenisnya
-    // Sesuai pola program, kita pakai query param id
     const res = await api.put("/donations/status", { status }, {
       params: { id } 
     });
@@ -147,13 +147,83 @@ export async function updateDonationStatus(id: number, status: string) {
     throw error;
   }
 }
+
+// Catat donasi manual (Cash/Offline)
 export async function createManualDonation(data: any) {
   try {
-    // Route ini harus sesuai dengan yang dibuat di Backend Go
     const res = await api.post("/admin/donations/manual", data);
     return res.data;
   } catch (error) {
     console.error("❌ Gagal mencatat donasi manual:", error);
+    throw error;
+  }
+}
+
+// ======================================================
+// ALLOCATION / PENGELUARAN DANA (ADMIN) - [BARU]
+// ======================================================
+
+// Ambil semua data alokasi
+export async function getAllocations(type?: string): Promise<DonationAllocation[]> {
+  try {
+    // Bisa filter by type: 'classification' atau 'operational'
+    const config = type ? { params: { type } } : {};
+    const res = await api.get("/allocations", config);
+    
+    // DEBUG: Uncomment baris ini jika ingin melihat struktur data asli di console browser
+    // console.log("🔍 API Response Allocations:", res.data);
+
+    // 1. Jika response body kosong/null
+    if (!res.data) return [];
+
+    // 2. Jika response langsung Array
+    if (Array.isArray(res.data)) return res.data;
+
+    // 3. Jika response dibungkus object { data: [...] }
+    // Menggunakan Optional Chaining (?.) agar tidak error jika res.data null
+    return res.data?.data || [];
+    
+  } catch (error) {
+    console.error("❌ Gagal mengambil data alokasi:", error);
+    return [];
+  }
+}
+
+// Catat alokasi baru
+export async function createAllocation(data: DonationAllocation) {
+  try {
+    const res = await api.post("/allocations", data);
+    return res.data;
+  } catch (error) {
+    console.error("❌ Gagal mencatat alokasi:", error);
+    throw error;
+  }
+}
+
+// Update alokasi
+export async function updateAllocation(id: number, data: DonationAllocation) {
+  try {
+    // Backend menggunakan query param ?id=... untuk PUT
+    const res = await api.put("/allocations", data, {
+      params: { id }
+    });
+    return res.data;
+  } catch (error) {
+    console.error("❌ Gagal update alokasi:", error);
+    throw error;
+  }
+}
+
+// Hapus alokasi
+export async function deleteAllocation(id: number) {
+  try {
+    // Backend menggunakan query param ?id=... untuk DELETE
+    const res = await api.delete("/allocations", {
+      params: { id }
+    });
+    return res.data;
+  } catch (error) {
+    console.error("❌ Gagal hapus alokasi:", error);
     throw error;
   }
 }
@@ -166,14 +236,13 @@ export async function createDonation(donation: Donation) {
   try {
     const payload = {
       ...donation,
-      // Logika frontend: jika ada program_id berarti tipe 'program', jika tidak 'quick'/'umum'
       donation_type: donation.program_id ? "program" : "quick",
     };
 
     const res = await api.post("/donations", payload);
 
     console.log("✅ Donasi berhasil dibuat (Pending):", res.data);
-    return res.data; // Mengembalikan { token, redirect_url, donation_id }
+    return res.data; 
   } catch (error: any) {
     console.error("❌ Gagal membuat donasi:");
     if (error.response) {
@@ -192,10 +261,7 @@ export async function createDonation(donation: Donation) {
 
 export async function getUserDonations(userId?: number): Promise<Donation[]> {
   try {
-    // Jika userId tidak dioper, backend biasanya ambil dari token (context)
-    // Tapi di endpoint backend Anda sebelumnya pakai query param ?user_id=...
     const config = userId ? { params: { user_id: userId } } : {};
-    
     const res = await api.get("/user-donations", config);
     return res.data;
   } catch (error) {
