@@ -12,7 +12,7 @@ const api = axios.create({
 });
 
 // ==========================================
-// TRANSAKSI ZAKAT
+// 1. TRANSAKSI ZAKAT (PEMASUKAN)
 // ==========================================
 
 // POST zakat (Create New)
@@ -30,7 +30,6 @@ export async function createZakatPayment(data: CreateZakatPaymentPayload) {
 export async function getAllZakatPayments(userId: number) {
   try {
     const res = await api.get(`/zakat?user_id=${userId}`);
-    // Backend mengirim array langsung untuk endpoint user
     return Array.isArray(res.data) ? res.data : (res.data?.data || []);
   } catch (error: any) {
     console.error("❌ Gagal mengambil data zakat:", error.response || error.message);
@@ -42,7 +41,6 @@ export async function getAllZakatPayments(userId: number) {
 export async function getAllZakat() {
   try {
     const res = await api.get("/admin/zakat-list"); 
-    // Backend admin mengirim object { data: [...] }
     return res.data?.data || [];
   } catch (error: any) {
     console.error("❌ Gagal mengambil data zakat:", error);
@@ -50,10 +48,9 @@ export async function getAllZakat() {
   }
 }
 
-// [BARU] UPDATE Status Zakat (Admin)
+// UPDATE Status Zakat (Admin)
 export async function updateZakatStatus(id: number, status: string) {
   try {
-    // Endpoint sesuai backend manual handling: /api/v1/admin/zakat/{id}/status
     const res = await api.put(`/admin/zakat/${id}/status`, { status });
     return res.data;
   } catch (error: any) {
@@ -63,14 +60,19 @@ export async function updateZakatStatus(id: number, status: string) {
 }
 
 // ==========================================
-// DISTRIBUSI ZAKAT
+// 2. DISTRIBUSI ZAKAT (ALOKASI / RENCANA)
 // ==========================================
 
 export interface ZakatDistributionItem {
   id: number;
   category: string;
   percentage: number;
-  amount: number;
+  
+  // Financials
+  amount: number;    // Pagu Anggaran
+  used: number;      // [BARU] Realisasi
+  remaining: number; // [BARU] Sisa Dana
+  
   recipients: number;
   color: string;
 }
@@ -80,7 +82,7 @@ export interface ZakatDistributionResponse {
   distribution: ZakatDistributionItem[];
 }
 
-// GET Data Distribusi Zakat
+// GET Data Distribusi Zakat (Summary)
 export async function getZakatDistribution(): Promise<ZakatDistributionResponse> {
   try {
     const res = await api.get("/zakat/distribution");
@@ -94,13 +96,80 @@ export async function getZakatDistribution(): Promise<ZakatDistributionResponse>
   }
 }
 
-// UPDATE Setting Distribusi (Admin)
+// UPDATE Setting Distribusi (Admin) - Update Persentase
 export async function updateZakatDistribution(data: {id: number, percentage: number}[]) {
   try {
     const res = await api.put("/admin/zakat/distribution", data);
     return res.data;
   } catch (error: any) {
     console.error("❌ Gagal update distribusi:", error);
+    throw error;
+  }
+}
+
+// ==========================================
+// 3. LOG PENYALURAN (REALISASI / PENGELUARAN)
+// ==========================================
+
+export interface DistributionLogItem {
+  id: number;
+  distribution_setting_id: number;
+  category_name?: string; // Dari join backend
+  amount: number;
+  recipient_count: number;
+  distribution_type: string;
+  status: string;
+  distribution_date: string;
+  pic_name: string;
+  document_ref: string;
+  notes: string;
+  created_at: string;
+}
+
+export interface CreateDistributionLogPayload {
+  distribution_setting_id: number;
+  amount: number;
+  recipient_count: number;
+  distribution_type: string; // 'tunai', 'transfer', 'barang'
+  status?: string;           // 'draft', 'approved'
+  distribution_date?: string;
+  pic_name?: string;
+  document_ref?: string;
+  notes: string;
+}
+
+// GET History Penyaluran
+export async function getDistributionLogs() {
+  try {
+    const res = await api.get("/admin/zakat/distribution/logs");
+    return Array.isArray(res.data) ? res.data : [];
+  } catch (error: any) {
+    console.error("❌ Gagal load history penyaluran:", error);
+    return [];
+  }
+}
+
+// CREATE Log Penyaluran Baru
+export async function createDistributionLog(data: CreateDistributionLogPayload) {
+  try {
+    const res = await api.post("/admin/zakat/distribution/logs", data);
+    return res.data;
+  } catch (error: any) {
+    console.error("❌ Gagal mencatat penyaluran:", error);
+    throw error;
+  }
+}
+
+// DELETE Log Penyaluran (BARU)
+export async function deleteDistributionLog(id: number) {
+  try {
+    // Axios otomatis mengubah object params menjadi query string: ?id=...
+    const res = await api.delete("/admin/zakat/distribution/logs", {
+      params: { id }
+    });
+    return res.data;
+  } catch (error: any) {
+    console.error("❌ Gagal menghapus log penyaluran:", error);
     throw error;
   }
 }

@@ -29,6 +29,7 @@ import {
 
 // API (Hapus import budget)
 import { getFinancialSummary, getCashFlow } from "@/lib/api/report";
+import { getDistributionLogs } from "@/lib/api/zakat";
 
 // Warna Grafik
 const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6"];
@@ -90,18 +91,43 @@ export default function FinancialReportsPage() {
   };
 
   // --- FETCH DATA TRANSAKSI ---
+// --- FETCH DATA TRANSAKSI (UPDATED) ---
   const fetchData = async () => {
     setIsLoading(true);
     try {
       const params = { start_date: startDate, end_date: endDate };
-      const [resSummary, resFlow] = await Promise.all([
+      
+      // 1. Ambil Data Transaksi Umum & Data Distribusi Zakat Sekaligus
+      const [resSummary, resFlow, resZakatDist] = await Promise.all([
         getFinancialSummary(params),
         getCashFlow(params),
+        getDistributionLogs() // Ambil semua log distribusi (filter tanggal manual di bawah jika API belum support params)
       ]);
 
       setSummary(resSummary);
 
-      const rawTransactions = resFlow || [];
+      // 2. Normalisasi Data Distribusi Zakat agar formatnya sama dengan Transaksi Umum
+      // Asumsi resZakatDist adalah array object seperti di halaman admin zakat
+      const zakatExpenses = (Array.isArray(resZakatDist) ? resZakatDist : []).map(item => ({
+          id: `ZKT-OUT-${item.id}`,           // ID Unik semu
+          date: item.distribution_date || item.created_at, // Samakan field tanggal
+          category: "Penyaluran Zakat",       // Kategori hardcode/dinamis
+          description: `${item.category_name || 'Zakat'} - ${item.notes || ''}`,
+          amount: Number(item.amount),
+          type: "keluar",                     // Pastikan tipe 'keluar'
+          source: "zakat",                    // Penanda sumber dana
+          status: "approved"
+      })).filter(item => {
+          // Filter manual berdasarkan tanggal (karena getDistributionLogs mungkin ambil semua)
+          if (!startDate || !endDate) return true;
+          const itemDate = new Date(item.date).getTime();
+          return itemDate >= new Date(startDate).getTime() && itemDate <= new Date(endDate).getTime();
+      });
+
+      // 3. Gabungkan Transaksi Umum + Pengeluaran Zakat
+      const rawTransactions = [...(resFlow || []), ...zakatExpenses];
+
+      // 4. Sortir & Hitung Saldo (Logika sama seperti sebelumnya)
       const sortedAsc = [...rawTransactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
       let currentBalance = 0; 
@@ -111,30 +137,38 @@ export default function FinancialReportsPage() {
 
       const enrichedTransactions = sortedAsc.map((t) => {
         const amountVal = Number(t.amount) || 0;
+        
         const catLower = (t.category || "").toLowerCase();
         const srcLower = (t.source || "").toLowerCase();
+        const descLower = (t.description || "").toLowerCase();
 
+        // Hitung Saldo
         if (t.type === 'masuk') {
             currentBalance += amountVal;
         } else {
             currentBalance -= amountVal;
         }
 
-        const isZakat = catLower.includes('zakat') || srcLower.includes('zakat');
+        // Deteksi Jenis Dana
+        const isZakat = catLower.includes('zakat') || srcLower.includes('zakat') || descLower.includes('zakat');
         const isQurban = catLower.includes('qurban') || srcLower.includes('qurban');
 
+        // Akumulasi Sektor
         if (isZakat) {
-            if (t.type === 'masuk') zIn += amountVal; else zOut += amountVal;
+            if (t.type === 'masuk') zIn += amountVal; 
+            else zOut += amountVal; // <-- INI SEKARANG AKAN TERISI DARI DATA DISTRIBUTION
         } else if (isQurban) {
-            if (t.type === 'masuk') qIn += amountVal; else qOut += amountVal;
+            if (t.type === 'masuk') qIn += amountVal; 
+            else qOut += amountVal;
         } else {
-            if (t.type === 'masuk') dIn += amountVal; else dOut += amountVal;
+            if (t.type === 'masuk') dIn += amountVal; 
+            else dOut += amountVal;
         }
 
         return {
           ...t,
           running_balance: currentBalance,
-          fund_type: (isZakat || isQurban) ? "Restricted" : "Unrestricted"
+          fund_type: isZakat ? "Zakat" : (isQurban ? "Qurban" : "Umum")
         };
       });
 
@@ -484,8 +518,8 @@ export default function FinancialReportsPage() {
                                     <th className="px-6 py-4 w-[120px]">No. Bukti</th>
                                     <th className="px-6 py-4">Uraian Transaksi</th>
                                     <th className="px-6 py-4 text-center">Dana</th>
-                                    <th className="px-6 py-4 text-right">Debet</th>
-                                    <th className="px-6 py-4 text-right">Kredit</th>
+                                    <th className="px-6 py-4 text-right">Uang Masuk</th>
+                                    <th className="px-6 py-4 text-right">Uang Keluar</th>
                                     <th className="px-6 py-4 text-right bg-slate-100/50">Saldo</th>
                                     <th className="px-6 py-4 text-center w-[50px]">Aksi</th>
                                 </tr>
