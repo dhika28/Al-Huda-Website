@@ -2,39 +2,8 @@
 
 import { useState, useEffect, Key } from "react"
 import {
-  Calendar,
-  Search,
-  Plus,
-  Clock,
-  MapPin,
-  Trash2,
-  Pencil,
-  RefreshCw,
-  BookOpen,
-  GraduationCap,
-  Heart,
-  Mic,
-  Award,
-  Star,
-  User,
-  Phone,
-  Banknote,
-  MoreHorizontal,
-  CheckCircle,
-  XCircle,
-  PlayCircle,
-  Download,
-  FileSpreadsheet,
-  FileText as FileIcon,
-  Users,
-  ChevronLeft,
-  ChevronRight,
-  PhoneIncoming,
-  Info,
-  X,
-  FileText,
-  Printer,
-  CheckCircle2
+  Calendar, Search, Plus, Clock, MapPin, Trash2, Pencil, RefreshCw, BookOpen, GraduationCap, Heart, Mic, Award, Star, User, Phone, Banknote, MoreHorizontal, CheckCircle, XCircle, PlayCircle, Download, FileSpreadsheet, FileText as FileIcon, Users, ChevronLeft, ChevronRight, PhoneIncoming, Info, X, FileText, Printer, CheckCircle2,
+  Image as ImageIcon, Loader2 // Tambah icon Image & Loader
 } from "lucide-react"
 import { Toaster, toast } from "react-hot-toast"
 
@@ -44,27 +13,12 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
-// Import Service & Type
-import { ActivityService } from "@/lib/api/activity"
+// Tipe Data Activity
 import { Activity, ActivityStatus } from "@/app/types/activity"
 
 // Tipe Form State
@@ -80,11 +34,15 @@ interface ActivityFormState {
   biaya: string
   kontak: string
   fasilitas: string 
+  gambar: string // URL gambar (preview atau dari server)
 }
 
 export default function AdminEventsPage() {
   const [events, setEvents] = useState<Activity[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  
+  // State khusus file mentah untuk dikirim ke backend
+  const [fileRaw, setFileRaw] = useState<File | null>(null)
   
   // Filter & Pagination State
   const [searchTerm, setSearchTerm] = useState("")
@@ -103,16 +61,21 @@ export default function AdminEventsPage() {
   const defaultForm: ActivityFormState = {
     judul: "", kategori: "Kajian", tanggal: "", waktu: "", lokasi: "Masjid Al-Huda",
     pemateri: "", tema: "", deskripsi: "",
-    biaya: "Gratis", kontak: "", fasilitas: ""
+    biaya: "Gratis", kontak: "", fasilitas: "",
+    gambar: ""
   }
   const [formData, setFormData] = useState<ActivityFormState>(defaultForm)
 
   // --- FETCH DATA ---
+  // Sesuaikan URL ini dengan alamat backend Golang Anda
+  const API_BASE_URL = "http://localhost:8080/api/v1/activities" 
+
   const fetchData = async () => {
     setIsLoading(true)
     try {
-      const res = await ActivityService.getAll()
-      setEvents(res.data || [])
+      const res = await fetch(API_BASE_URL)
+      const json = await res.json()
+      setEvents(json.data || [])
     } catch (error) {
       console.error("Fetch error:", error)
       toast.error("Gagal memuat data kegiatan.")
@@ -131,9 +94,29 @@ export default function AdminEventsPage() {
   }, [filterStatus, searchTerm, activeTab])
 
 
+  // --- HANDLER UPLOAD FOTO (PREVIEW) ---
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validasi ukuran (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+        toast.error("Ukuran file maksimal 2MB")
+        return
+    }
+
+    // Simpan file asli ke state untuk dikirim nanti
+    setFileRaw(file)
+    
+    // Buat URL preview sementara
+    const previewUrl = URL.createObjectURL(file)
+    setFormData(prev => ({ ...prev, gambar: previewUrl }))
+  }
+
   // --- HANDLERS ---
   const handleOpenCreate = () => {
     setIsEditMode(false)
+    setFileRaw(null) // Reset file
     setFormData(defaultForm)
     setIsModalOpen(true)
   }
@@ -141,6 +124,7 @@ export default function AdminEventsPage() {
   const handleOpenEdit = (activity: Activity) => {
     setIsEditMode(true)
     setCurrentId(activity.id)
+    setFileRaw(null) // Reset file baru
     
     const fasilitasString = Array.isArray(activity.fasilitas) 
         ? activity.fasilitas.join(", ") 
@@ -157,153 +141,215 @@ export default function AdminEventsPage() {
         deskripsi: activity.deskripsi || "",
         biaya: activity.biaya || "",
         kontak: activity.kontak || "",
-        fasilitas: String(fasilitasString)
+        fasilitas: String(fasilitasString),
+        gambar: activity.gambar || "" 
     })
     setIsModalOpen(true)
   }
 
+  // --- SUBMIT HANDLER (SMART SWITCH: JSON vs FORMDATA) ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const loadingToast = toast.loading("Menyimpan data...")
     
     try {
-      const payload: any = { ...formData, status: 'terbuka' } 
-
+      let url = API_BASE_URL
+      let method = "POST"
+      
       if (isEditMode && currentId) {
-        const existingEvent = events.find(e => e.id === currentId)
-        const finalPayload = { ...formData, status: existingEvent?.status || 'terbuka' }
-        await ActivityService.update(currentId, finalPayload)
-        toast.success("Kegiatan diperbarui!")
-      } else {
-        await ActivityService.create(payload)
-        toast.success("Kegiatan berhasil dibuat!")
+        url = `${API_BASE_URL}/${currentId}`
+        method = "PUT"
       }
+
+      // LOGIKA BARU: Tentukan apakah harus pakai FormData atau JSON
+      // Kita pakai FormData jika: 
+      // 1. Ini mode CREATE (tambah baru)
+      // 2. Ini mode EDIT DAN user memilih file gambar baru (fileRaw tidak null)
+      const useFormData = !isEditMode || (isEditMode && fileRaw !== null);
+
+      let bodyData;
+      let headers = {};
+
+      if (useFormData) {
+          // --- SKENARIO A: UPLOAD GAMBAR (Pakai FormData) ---
+          const formDataToSend = new FormData()
+          
+          formDataToSend.append("judul", formData.judul)
+          formDataToSend.append("kategori", formData.kategori)
+          formDataToSend.append("tanggal", formData.tanggal)
+          formDataToSend.append("waktu", formData.waktu)
+          formDataToSend.append("lokasi", formData.lokasi)
+          formDataToSend.append("pemateri", formData.pemateri)
+          formDataToSend.append("tema", formData.tema)
+          formDataToSend.append("deskripsi", formData.deskripsi)
+          formDataToSend.append("biaya", formData.biaya)
+          formDataToSend.append("kontak", formData.kontak)
+          
+          // Fasilitas dikirim sebagai JSON String di dalam FormData
+          const fasilitasArray = formData.fasilitas
+            ? formData.fasilitas.split(",").map(f => f.trim()).filter(f => f !== "")
+            : [];
+          formDataToSend.append("fasilitas", JSON.stringify(fasilitasArray))
+
+          formDataToSend.append("status", isEditMode ? (events.find(e => e.id === currentId)?.status || 'terbuka') : 'terbuka') 
+          
+          // Kirim URL gambar lama jika tidak diganti
+          if (!fileRaw) {
+             formDataToSend.append("gambar", formData.gambar) 
+          }
+
+          // Kirim File Baru
+          if (fileRaw) {
+            formDataToSend.append("gambar_file", fileRaw)
+          }
+
+          bodyData = formDataToSend;
+          // PENTING: Jangan set Content-Type header manual saat pakai FormData!
+      
+      } else {
+          // --- SKENARIO B: EDIT TEKS SAJA (Pakai JSON) ---
+          // Ini solusi agar tidak kena "Invalid Payload" di Backend yang hanya terima JSON
+          const fasilitasArray = formData.fasilitas
+            ? formData.fasilitas.split(",").map(f => f.trim()).filter(f => f !== "")
+            : [];
+
+          const payload = {
+              judul: formData.judul,
+              kategori: formData.kategori,
+              tanggal: formData.tanggal,
+              waktu: formData.waktu,
+              lokasi: formData.lokasi,
+              pemateri: formData.pemateri,
+              tema: formData.tema,
+              deskripsi: formData.deskripsi,
+              biaya: formData.biaya,
+              kontak: formData.kontak,
+              fasilitas: fasilitasArray, // Kirim Array langsung (bukan string)
+              status: events.find(e => e.id === currentId)?.status || 'terbuka',
+              gambar: formData.gambar // URL gambar lama
+          };
+
+          bodyData = JSON.stringify(payload);
+          headers = { 'Content-Type': 'application/json' };
+      }
+
+      // EKSEKUSI FETCH
+      const res = await fetch(url, {
+        method: method,
+        headers: headers,
+        body: bodyData
+      })
+
+      if (!res.ok) {
+          const errData = await res.text(); 
+          throw new Error(errData || "Gagal menyimpan ke server")
+      }
+
+      toast.success(isEditMode ? "Kegiatan diperbarui!" : "Kegiatan berhasil dibuat!")
       
       setIsModalOpen(false)
+      setFileRaw(null) 
       fetchData()
-    } catch (error) {
+    } catch (error: any) {
       console.error(error)
-      toast.error("Gagal menyimpan data.")
+      toast.error(`Error: ${error.message}`)
     } finally {
       toast.dismiss(loadingToast)
     }
   }
 
-  // --- REPORT EXPORT HANDLERS ---
-  const handleExportExcel = () => {
-    if (events.length === 0) return toast.error("Tidak ada data kegiatan.")
-    try {
-        const headers = ["ID", "Judul", "Kategori", "Tanggal", "Lokasi", "Pemateri", "Status"]
-        const rows = events.map(e => [e.id, `"${e.judul}"`, e.kategori, e.tanggal, `"${e.lokasi}"`, `"${e.pemateri}"`, e.status])
-        const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n")
-        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' })
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement("a")
-        link.href = url
-        link.download = `Laporan_Kegiatan_AlHuda_${new Date().toISOString().split('T')[0]}.csv`
-        document.body.appendChild(link); link.click(); document.body.removeChild(link)
-        toast.success("Laporan Excel berhasil diunduh!")
-    } catch (error) { toast.error("Gagal export data.") }
-  }
-
-  const handleExportPDF = () => {
-    if (events.length === 0) return toast.error("Tidak ada data kegiatan.")
-    const printWindow = window.open('', '', 'height=800,width=1000')
-    if (!printWindow) return toast.error("Pop-up diblokir.")
-    
-    const htmlContent = `
-        <html><head><title>Laporan Kegiatan Masjid</title>
-        <style>body{font-family:'Times New Roman';padding:40px}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #000;padding:8px;font-size:12px}th{background:#f0f0f0}</style>
-        </head><body>
-        <h2 style="text-align:center;margin-bottom:5px">LAPORAN KEGIATAN MASJID AL-HUDA</h2>
-        <p style="text-align:center;margin-top:0;font-size:12px">Periode: ${new Date().getFullYear()}</p>
-        <table><thead><tr><th>No</th><th>Tanggal</th><th>Nama Kegiatan</th><th>Kategori</th><th>Pemateri</th><th>Status</th></tr></thead>
-        <tbody>
-            ${events.map((e, i) => `<tr><td style="text-align:center">${i+1}</td><td>${e.tanggal}</td><td>${e.judul}</td><td>${e.kategori}</td><td>${e.pemateri}</td><td>${e.status}</td></tr>`).join('')}
-        </tbody></table>
-        <script>window.onload=function(){window.print()}</script>
-        </body></html>`
-        
-    printWindow.document.write(htmlContent)
-    printWindow.document.close()
-  }
-
-  // --- CONFIRMATION TOASTS ---
+  // --- DELETE HANDLER ---
+  // --- DELETE HANDLER (DENGAN TOAST KONFIRMASI) ---
   const handleDelete = (id: number) => {
+    // Memunculkan Custom Toast
     toast((t) => (
-      <div className="flex flex-col gap-2">
-        <p className="text-sm font-medium text-slate-700">Hapus kegiatan ini permanen?</p>
-        <div className="flex gap-2 justify-end">
-          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => toast.dismiss(t.id)}>Batal</Button>
+      <div className="flex flex-col gap-2 w-[280px]">
+        <div className="flex items-start gap-3">
+            <div className="bg-red-100 p-2 rounded-full shrink-0">
+                <Trash2 className="h-5 w-5 text-red-600" />
+            </div>
+            <div>
+                <h4 className="font-semibold text-slate-900 text-sm">Hapus Kegiatan?</h4>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    Data yang dihapus tidak dapat dikembalikan lagi.
+                </p>
+            </div>
+        </div>
+        
+        <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-slate-100">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-8 text-xs"
+            onClick={() => toast.dismiss(t.id)} // Tutup toast jika batal
+          >
+            Batal
+          </Button>
           <Button 
             size="sm" 
-            className="h-7 text-xs bg-red-600 text-white hover:bg-red-700"
+            className="bg-red-600 hover:bg-red-700 text-white h-8 text-xs"
             onClick={async () => {
-              toast.dismiss(t.id)
+              toast.dismiss(t.id) // Tutup toast konfirmasi
+              
+              // Eksekusi Hapus
+              const loadingToast = toast.loading("Menghapus data...")
               try {
-                await ActivityService.delete(id)
-                toast.success("Kegiatan dihapus")
-                fetchData()
-              } catch (e) { toast.error("Gagal menghapus") }
+                  const res = await fetch(`${API_BASE_URL}/${id}`, { method: 'DELETE' })
+                  if (!res.ok) throw new Error("Gagal hapus")
+                  
+                  toast.success("Kegiatan berhasil dihapus")
+                  fetchData() // Refresh data
+              } catch (e) { 
+                  console.error(e)
+                  toast.error("Gagal menghapus kegiatan") 
+              } finally {
+                  toast.dismiss(loadingToast)
+              }
             }}
           >
-            Hapus
+            Ya, Hapus
           </Button>
         </div>
       </div>
-    ), { icon: <Trash2 className="h-4 w-4 text-red-500" /> })
+    ), { 
+      duration: Infinity, // Toast tidak akan hilang sendiri sampai diklik
+      position: "top-center"
+    })
+  }
+  
+  // --- STATUS UPDATE HANDLER ---
+  // Fungsi ini tetap menggunakan JSON karena tidak mengirim file
+  const handleUpdateStatus = async (id: number, newStatus: ActivityStatus, currentData: Activity) => {
+    const loadingToast = toast.loading("Updating status...")
+    try {
+        const payload = {
+            ...currentData,
+            status: newStatus,
+            // Format tanggal agar sesuai input backend jika perlu (YYYY-MM-DD)
+            tanggal: currentData.tanggal ? currentData.tanggal.split('T')[0] : "",
+            fasilitas: Array.isArray(currentData.fasilitas) ? currentData.fasilitas.join(", ") : (currentData.fasilitas || "")
+        }
+
+        const res = await fetch(`${API_BASE_URL}/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+
+        if (!res.ok) throw new Error("Gagal update status")
+        
+        toast.success(`Status diubah menjadi: ${newStatus}`)
+        fetchData()
+    } catch (error) {
+        toast.error("Gagal update status")
+    } finally {
+        toast.dismiss(loadingToast)
+    }
   }
 
-  const handleUpdateStatus = (id: number, newStatus: ActivityStatus, currentData: Activity) => {
-    toast((t) => (
-        <div className="flex flex-col gap-2">
-            <p className="text-sm font-medium text-slate-700">
-                Ubah status menjadi <strong>{newStatus.toUpperCase()}</strong>?
-            </p>
-            <div className="flex gap-2 justify-end">
-                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => toast.dismiss(t.id)}>Batal</Button>
-                <Button 
-                    size="sm" 
-                    className="h-7 text-xs bg-emerald-600 text-white hover:bg-emerald-700"
-                    onClick={async () => {
-                        toast.dismiss(t.id)
-                        try {
-                            const payload = {
-                                ...currentData,
-                                status: newStatus,
-                                tanggal: currentData.tanggal ? currentData.tanggal.split('T')[0] : "",
-                                fasilitas: Array.isArray(currentData.fasilitas) ? currentData.fasilitas.join(", ") : (currentData.fasilitas || "")
-                            }
-                            // Clean payload structure manually if needed
-                            const cleanPayload = {
-                                judul: payload.judul,
-                                kategori: payload.kategori || "",
-                                tanggal: payload.tanggal,
-                                waktu: payload.waktu || "",
-                                lokasi: payload.lokasi || "",
-                                pemateri: payload.pemateri || "",
-                                tema: payload.tema || "",
-                                deskripsi: payload.deskripsi || "",
-                                status: newStatus,
-                                biaya: payload.biaya || "",
-                                kontak: payload.kontak || "",
-                                fasilitas: String(payload.fasilitas)
-                            }
-
-                            await ActivityService.update(id, cleanPayload)
-                            toast.success(`Status diubah menjadi: ${newStatus}`)
-                            fetchData()
-                        } catch (error) {
-                            toast.error("Gagal update status")
-                        }
-                    }}
-                >
-                    Ya, Ubah
-                </Button>
-            </div>
-        </div>
-    ), { duration: 5000, position: 'top-center' })
-  }
+  // --- EXPORT HANDLERS (Placeholder) ---
+  const handleExportExcel = () => toast("Fitur export Excel belum diimplementasi")
+  const handleExportPDF = () => toast("Fitur export PDF belum diimplementasi")
 
   // --- UTILS ---
   const getCategoryIcon = (cat: string = "") => {
@@ -384,16 +430,6 @@ export default function AdminEventsPage() {
         </div>
         
         <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            onClick={fetchData} 
-            className="bg-white hover:bg-slate-50 text-slate-600 border-slate-200 h-10 shadow-sm"
-            disabled={isLoading}
-          >
-             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} /> 
-             {isLoading ? "Syncing..." : "Sync Data"}
-          </Button>
-
           <Button 
             onClick={handleOpenCreate} 
             className="bg-emerald-600 hover:bg-emerald-700 text-white h-10 shadow-md px-6"
@@ -491,6 +527,27 @@ export default function AdminEventsPage() {
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </div>
+                                
+                                {event.gambar && (
+                                    <div className="w-full h-40 overflow-hidden relative border-b border-slate-100 bg-gray-50">
+                                        <img 
+                                            src={event.gambar} 
+                                            alt={event.judul} 
+                                            className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                                            // --- TAMBAHAN PENTING ---
+                                            referrerPolicy="no-referrer" 
+                                            // ------------------------
+                                            onError={(e) => {
+                                                console.error("Gagal memuat gambar (Card):", event.gambar); 
+                                                // Opsional: Ganti ke gambar placeholder daripada dihilangkan
+                                                // (e.target as HTMLImageElement).src = '/placeholder.jpg';
+                                                
+                                                // Atau biarkan logic sembunyikan jika benar-benar rusak
+                                                (e.target as HTMLImageElement).style.display = 'none';
+                                            }}
+                                        />
+                                    </div>
+                                )}
 
                                 {/* Content */}
                                 <h3 className="text-lg font-bold text-slate-900 leading-snug mb-2 group-hover:text-emerald-700 transition-colors">
@@ -514,12 +571,6 @@ export default function AdminEventsPage() {
                                     <div className="flex items-center gap-2 text-slate-600">
                                         <User className="h-4 w-4 text-slate-400"/> {event.pemateri}
                                     </div>
-                                    {(event.biaya || event.kontak) && (
-                                        <div className="flex gap-3 mt-2 pt-2 border-t border-slate-50">
-                                            {event.biaya && <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-1 rounded"><Banknote className="h-3 w-3"/> {event.biaya}</div>}
-                                            {event.kontak && <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 px-2 py-1 rounded"><Phone className="h-3 w-3"/> {event.kontak}</div>}
-                                        </div>
-                                    )}
                                 </div>
                             </CardContent>
                         </Card>
@@ -559,6 +610,32 @@ export default function AdminEventsPage() {
             <DialogDescription>Lengkapi detail kegiatan untuk dipublikasikan. Status awal otomatis "Terbuka".</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 py-2">
+            
+            {/* INPUT GAMBAR */}
+            <div className="space-y-2">
+                <Label>Poster / Foto Kegiatan</Label>
+                <div className="flex items-start gap-4">
+                    <div className="relative w-32 h-32 bg-slate-100 rounded-lg border border-dashed border-slate-300 flex items-center justify-center overflow-hidden shrink-0">
+                        {formData.gambar ? (
+                            <>
+                                <img src={formData.gambar} alt="Preview" className="w-full h-full object-cover" />
+                                <button type="button" onClick={() => { setFormData({...formData, gambar: ""}); setFileRaw(null); }} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-sm hover:bg-red-600"><X className="h-3 w-3" /></button>
+                            </>
+                        ) : (<ImageIcon className="h-8 w-8 text-slate-300" />)}
+                    </div>
+                    <div className="flex-1 space-y-2">
+                        <Input 
+                            type="file" 
+                            accept="image/*" 
+                            onChange={handleFileUpload} 
+                            className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                        />
+                        <p className="text-xs text-slate-500">Format: JPG, PNG. Maks 2MB. Akan diupload ke Nextcloud via Backend.</p>
+                        {fileRaw && <p className="text-xs text-emerald-600">File terpilih: {fileRaw.name}</p>}
+                    </div>
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1"><Label>Judul Kegiatan *</Label><Input value={formData.judul} onChange={e=>setFormData({...formData, judul: e.target.value})} required placeholder="Contoh: Kajian Rutin Sabtu"/></div>
                 <div className="space-y-1"><Label>Kategori *</Label><Select value={formData.kategori} onValueChange={v=>setFormData({...formData, kategori: v})}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="Kajian">Kajian</SelectItem><SelectItem value="Pendidikan">Pendidikan</SelectItem><SelectItem value="Sosial">Sosial</SelectItem><SelectItem value="Seminar">Seminar</SelectItem><SelectItem value="Pelatihan">Pelatihan</SelectItem><SelectItem value="Lainnya">Lainnya</SelectItem></SelectContent></Select></div>
@@ -637,6 +714,25 @@ function EventDetailModal({ data, onClose }: { data: Activity; onClose: () => vo
                 </div>
                 
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                    {/* --- Image Display --- */}
+                    {/* --- Image Display (Detail) --- */}
+                    {/* --- Image Display (Detail) --- */}
+                    {data.gambar && (
+                        <div className="w-full h-56 rounded-lg overflow-hidden border border-slate-200 mb-4 relative bg-gray-50 flex items-center justify-center">
+                            <img 
+                                src={data.gambar} 
+                                alt={data.judul} 
+                                className="w-full h-full object-cover" 
+                                // --- TAMBAHAN PENTING ---
+                                referrerPolicy="no-referrer"
+                                // ------------------------
+                                onError={(e) => {
+                                    console.error("Gagal memuat gambar (Detail):", data.gambar);
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                            />
+                        </div>
+                    )}
                     <div className="grid grid-cols-1 gap-4 text-sm">
                         <div className="space-y-1"><Label className="text-slate-500 text-xs">Judul</Label><p className="font-medium text-slate-900 text-base">{data.judul}</p></div>
                         <div className="grid grid-cols-2 gap-4">

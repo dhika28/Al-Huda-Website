@@ -14,6 +14,7 @@ export interface Activity {
   biaya?: string
   kontak?: string
   fasilitas?: string[] // hasil parsing JSON
+  gambar?: string // URL gambar (preview atau dari server)
   created_at: string
   updated_at: string
 }
