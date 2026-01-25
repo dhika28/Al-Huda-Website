@@ -60,7 +60,7 @@ const items = [
   { title: "Ambulance", url: "/admin/ambulance", icon: Ambulance },
   { title: "Events", url: "/admin/events", icon: Calendar },
   { title: "Financial Reports", url: "/admin/financial-reports", icon: FileText },
-  { title: "Settings", url: "/admin/settings", icon: Settings },
+  { title: "Profile Masjid", url: "/admin/settings", icon: Settings },
 ]
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {

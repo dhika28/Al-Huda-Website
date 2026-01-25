@@ -1,584 +1,508 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect, ChangeEvent } from "react"
+import { 
+  Save, RefreshCw, Upload, Plus, Trash2, 
+  Building, Target, History, LayoutGrid, Users, 
+  Loader2, ImageIcon, AlertTriangle
+} from "lucide-react"
+// PENTING: Import toast & Toaster
+import { toast, Toaster } from "react-hot-toast"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
-import {
-  Globe,
-  Bell,
-  Shield,
-  Database,
-  Palette,
-  Building,
-  Save,
-  RefreshCw,
-  Upload,
-  Download,
-  Eye,
-  EyeOff,
-} from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Separator } from "@/components/ui/separator"
 
-export default function AdminSettingsPage() {
-  const [activeTab, setActiveTab] = useState("general")
-  const [showApiKey, setShowApiKey] = useState(false)
+// Pastikan path import ini sesuai dengan struktur folder Anda
+import { MosqueProfile, StatItem, SejarahItem, FasilitasItem, StrukturItem } from "@/app/types/masjid"
+import { getMosqueProfile, updateMosqueProfile } from "@/lib/api/masjid"
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Pengaturan Sistem</h1>
-          <p className="text-gray-600">Konfigurasi dan pengaturan website masjid</p>
+export default function AdminProfilePage() {
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  
+  // --- INITIAL STATE ---
+  const [data, setData] = useState<MosqueProfile>({
+    id: 1,
+    nama_masjid: "",
+    tagline: "",
+    deskripsi_hero: "",
+    bg_image_url: "",
+    visi: "",
+    misi: [],
+    stats: [],
+    sejarah: [],
+    fasilitas: [],
+    program: [],
+    struktur: [],
+    alamat: "",
+    telepon: "",
+    email: "",
+    google_maps_url: "",
+  })
+
+  const [bgFile, setBgFile] = useState<File | null>(null)
+  const [previewBg, setPreviewBg] = useState<string>("")
+
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  const fetchData = async () => {
+    setIsLoading(true)
+    try {
+      const profile = await getMosqueProfile()
+      
+      if (profile) {
+        setData(prev => ({ ...prev, ...profile }))
+        if (profile.bg_image_url) {
+          setPreviewBg(profile.bg_image_url)
+        }
+      }
+    } catch (error) {
+      console.error(error)
+      toast.error("Gagal mengambil data dari server")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // --- HELPER: CONFIRM DELETE TOAST ---
+  // Fungsi ini memunculkan Toast dengan tombol YA / TIDAK
+  const confirmDelete = (onConfirm: () => void) => {
+    toast((t) => (
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2 font-medium">
+          <AlertTriangle className="h-4 w-4 text-orange-500" />
+          Hapus item ini?
+        </div>
+        <div className="text-xs text-gray-500 mb-2">
+          Item akan hilang dari tampilan. Klik SIMPAN untuk menghapus permanen.
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Reset Default
+          <Button 
+            size="sm" 
+            variant="destructive" 
+            className="h-8 text-xs w-full"
+            onClick={() => {
+              onConfirm()
+              toast.dismiss(t.id)
+              toast.success("Item dihapus dari draft. JANGAN LUPA KLIK SIMPAN!", { duration: 4000, icon: '💾' })
+            }}
+          >
+            Ya, Hapus
           </Button>
-          <Button>
-            <Save className="h-4 w-4 mr-2" />
-            Simpan Semua
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="h-8 text-xs w-full bg-white"
+            onClick={() => toast.dismiss(t.id)}
+          >
+            Batal
+          </Button>
+        </div>
+      </div>
+    ), { duration: 5000, position: "top-center" })
+  }
+
+  // --- HANDLERS UTAMA ---
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setData(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setBgFile(file)
+      setPreviewBg(URL.createObjectURL(file))
+    }
+  }
+
+  // --- DYNAMIC ARRAY HANDLERS (UPDATED WITH CONFIRM) ---
+
+  // -> MISI
+  const handleMisiChange = (idx: number, val: string) => {
+    const newMisi = [...(data.misi || [])]
+    newMisi[idx] = val
+    setData({ ...data, misi: newMisi })
+  }
+  const addMisi = () => setData({ ...data, misi: [...(data.misi || []), ""] })
+  const removeMisi = (idx: number) => {
+    confirmDelete(() => {
+        const newMisi = (data.misi || []).filter((_, i) => i !== idx)
+        setData(prev => ({ ...prev, misi: newMisi }))
+    })
+  }
+
+  // -> STATS
+  const handleStatChange = (idx: number, field: keyof StatItem, val: string) => {
+    const newStats = [...(data.stats || [])]
+    newStats[idx] = { ...newStats[idx], [field]: val }
+    setData({ ...data, stats: newStats })
+  }
+  const addStat = () => setData({ ...data, stats: [...(data.stats || []), { label: "", value: "" }] })
+  const removeStat = (idx: number) => {
+    confirmDelete(() => {
+        const newStats = (data.stats || []).filter((_, i) => i !== idx)
+        setData(prev => ({ ...prev, stats: newStats }))
+    })
+  }
+
+  // -> SEJARAH
+  const handleSejarahChange = (idx: number, field: keyof SejarahItem, val: string) => {
+    const newSejarah = [...(data.sejarah || [])]
+    newSejarah[idx] = { ...newSejarah[idx], [field]: val }
+    setData({ ...data, sejarah: newSejarah })
+  }
+  const addSejarah = () => setData({ ...data, sejarah: [...(data.sejarah || []), { tahun: "", peristiwa: "", detail: "" }] })
+  const removeSejarah = (idx: number) => {
+    confirmDelete(() => {
+        const newSejarah = (data.sejarah || []).filter((_, i) => i !== idx)
+        setData(prev => ({ ...prev, sejarah: newSejarah }))
+    })
+  }
+
+  // -> FASILITAS
+  const handleFasilitasChange = (idx: number, field: keyof FasilitasItem, val: string) => { 
+    const newFasilitas = [...(data.fasilitas || [])]
+    const item = { ...newFasilitas[idx] } as any 
+    item[field] = val
+    newFasilitas[idx] = item
+    setData({ ...data, fasilitas: newFasilitas })
+  }
+  const addFasilitas = () => setData({ ...data, fasilitas: [...(data.fasilitas || []), { nama: "", kapasitas: "", deskripsi: "" }] })
+  const removeFasilitas = (idx: number) => {
+    confirmDelete(() => {
+        const newFasilitas = (data.fasilitas || []).filter((_, i) => i !== idx)
+        setData(prev => ({ ...prev, fasilitas: newFasilitas }))
+    })
+  }
+
+  // -> STRUKTUR
+  const handleStrukturChange = (idx: number, field: keyof StrukturItem, val: string) => {
+    const newStruktur = [...(data.struktur || [])]
+    const item = { ...newStruktur[idx] } as any
+    item[field] = val
+    newStruktur[idx] = item
+    setData({ ...data, struktur: newStruktur })
+  }
+  const addStruktur = () => setData({ ...data, struktur: [...(data.struktur || []), { nama: "", jabatan: "", pendidikan: "", pengalaman: "" }] })
+  const removeStruktur = (idx: number) => {
+    confirmDelete(() => {
+        const newStruktur = (data.struktur || []).filter((_, i) => i !== idx)
+        setData(prev => ({ ...prev, struktur: newStruktur }))
+    })
+  }
+
+  // -> PROGRAM
+  const handleProgramCatChange = (idx: number, val: string) => {
+    const newProg = [...(data.program || [])]
+    newProg[idx] = { ...newProg[idx], kategori: val }
+    setData({ ...data, program: newProg })
+  }
+  const addProgramCat = () => setData({ ...data, program: [...(data.program || []), { kategori: "Kategori Baru", programs: [] }] })
+  const removeProgramCat = (idx: number) => {
+    confirmDelete(() => {
+        const newProg = (data.program || []).filter((_, i) => i !== idx)
+        setData(prev => ({ ...prev, program: newProg }))
+    })
+  }
+  
+  const handleProgramItemChange = (catIdx: number, progIdx: number, field: string, val: string) => {
+    const newProg = [...(data.program || [])]
+    const programs = [...newProg[catIdx].programs]
+    const item = { ...programs[progIdx] } as any
+    item[field] = val
+    programs[progIdx] = item
+    newProg[catIdx].programs = programs
+    setData({ ...data, program: newProg })
+  }
+  const addProgramItem = (catIdx: number) => {
+    const newProg = [...(data.program || [])]
+    newProg[catIdx].programs.push({ nama: "", jadwal: "", peserta: "" })
+    setData({ ...data, program: newProg })
+  }
+  const removeProgramItem = (catIdx: number, progIdx: number) => {
+    confirmDelete(() => {
+        const newProg = [...(data.program || [])]
+        newProg[catIdx].programs = newProg[catIdx].programs.filter((_, i) => i !== progIdx)
+        setData(prev => ({ ...prev, program: newProg }))
+    })
+  }
+
+  // --- SUBMIT DENGAN TOAST ---
+  const handleSubmit = async () => {
+    setIsSaving(true)
+    const toastId = toast.loading("Sedang menyimpan data ke database...")
+
+    try {
+      const formData = new FormData()
+      
+      // Append Text
+      formData.append("nama_masjid", data.nama_masjid || "")
+      formData.append("tagline", data.tagline || "")
+      formData.append("deskripsi_hero", data.deskripsi_hero || "")
+      formData.append("visi", data.visi || "")
+      formData.append("alamat", data.alamat || "")
+      formData.append("telepon", data.telepon || "")
+      formData.append("email", data.email || "")
+      formData.append("google_maps_url", data.google_maps_url || "")
+      
+      // Image
+      formData.append("bg_image_url", data.bg_image_url || "")
+      if (bgFile) formData.append("bg_image_file", bgFile)
+
+      // JSON Fields
+      formData.append("misi", JSON.stringify(data.misi || []))
+      formData.append("stats", JSON.stringify(data.stats || []))
+      formData.append("sejarah", JSON.stringify(data.sejarah || []))
+      formData.append("fasilitas", JSON.stringify(data.fasilitas || []))
+      formData.append("program", JSON.stringify(data.program || []))
+      formData.append("struktur", JSON.stringify(data.struktur || []))
+
+      const updatedData = await updateMosqueProfile(formData)
+      
+      setData(prev => ({ ...prev, ...updatedData }))
+      setBgFile(null)
+      
+      toast.success("Profil berhasil disimpan!", { id: toastId })
+
+    } catch (error: any) {
+      console.error(error)
+      toast.error("Gagal menyimpan: " + error.message, { id: toastId })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  if (isLoading) {
+    return <div className="flex h-96 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-emerald-600"/></div>
+  }
+
+  return (
+    <div className="w-full min-h-screen bg-slate-50/50 p-6 space-y-6">
+      <Toaster position="top-center" reverseOrder={false} />
+
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Profil Masjid</h1>
+          <p className="text-gray-600 text-sm mt-1"> Kelola informasi halaman depan masjid</p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={handleSubmit} disabled={isSaving} className="bg-emerald-600 hover:bg-emerald-700">
+            {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin"/> : <Save className="h-4 w-4 mr-2" />} Simpan
           </Button>
         </div>
       </div>
 
-      {/* Main Content */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="general">Umum</TabsTrigger>
-          <TabsTrigger value="appearance">Tampilan</TabsTrigger>
-          <TabsTrigger value="notifications">Notifikasi</TabsTrigger>
-          <TabsTrigger value="integrations">Integrasi</TabsTrigger>
-          <TabsTrigger value="security">Keamanan</TabsTrigger>
-          <TabsTrigger value="backup">Backup</TabsTrigger>
+      <Tabs defaultValue="utama" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-6 h-auto">
+          <TabsTrigger value="utama" className="py-2">Utama</TabsTrigger>
+          <TabsTrigger value="visimisi" className="py-2">Visi & Misi</TabsTrigger>
+          <TabsTrigger value="sejarah" className="py-2">Sejarah</TabsTrigger>
+          <TabsTrigger value="fasilitas" className="py-2">Fasilitas</TabsTrigger>
+          <TabsTrigger value="program" className="py-2">Program</TabsTrigger>
+          <TabsTrigger value="struktur" className="py-2">Struktur</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="general" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building className="h-5 w-5" />
-                Informasi Masjid
-              </CardTitle>
-              <CardDescription>Pengaturan dasar informasi masjid</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <TabsContent value="utama" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader><CardTitle className="flex items-center gap-2"><Building className="h-5 w-5"/> Identitas Masjid</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="mosque-name">Nama Masjid</Label>
-                  <Input id="mosque-name" defaultValue="Masjid Al Huda" />
+                  <Label>Nama Masjid</Label>
+                  <Input name="nama_masjid" value={data.nama_masjid || ""} onChange={handleChange} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="mosque-email">Email</Label>
-                  <Input id="mosque-email" type="email" defaultValue="info@masjidalHuda.com" />
+                  <Label>Tagline</Label>
+                  <Input name="tagline" value={data.tagline || ""} onChange={handleChange} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="mosque-phone">Telepon</Label>
-                  <Input id="mosque-phone" defaultValue="021-1234567" />
+                  <Label>Deskripsi Hero</Label>
+                  <Textarea name="deskripsi_hero" value={data.deskripsi_hero || ""} onChange={handleChange} rows={4} />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="mosque-website">Website</Label>
-                  <Input id="mosque-website" defaultValue="https://masjidalHuda.com" />
-                </div>
-              </div>
+              </CardContent>
+            </Card>
 
-              <div className="space-y-2">
-                <Label htmlFor="mosque-address">Alamat Lengkap</Label>
-                <Textarea
-                  id="mosque-address"
-                  placeholder="Alamat lengkap masjid..."
-                  defaultValue="Jl. Masjid Raya No. 123, Jakarta Pusat, DKI Jakarta 10110"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="mosque-description">Deskripsi Masjid</Label>
-                <Textarea
-                  id="mosque-description"
-                  placeholder="Deskripsi singkat tentang masjid..."
-                  defaultValue="Masjid Al Huda adalah masjid yang melayani masyarakat dengan berbagai program keagamaan dan sosial."
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader><CardTitle className="flex items-center gap-2"><ImageIcon className="h-5 w-5"/> Background & Kontak</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="capacity">Kapasitas Jamaah</Label>
-                  <Input id="capacity" type="number" defaultValue="500" />
+                  <Label>Foto Background</Label>
+                  <div className="flex gap-4 items-start">
+                    <div className="w-24 h-16 bg-slate-100 rounded overflow-hidden border">
+                      {previewBg && <img src={previewBg} alt="Preview" className="w-full h-full object-cover" />}
+                    </div>
+                    <div className="flex-1">
+                        <Input type="file" accept="image/*" onChange={handleFileChange} />
+                        <p className="text-xs text-slate-500 mt-1">Disarankan 1920x1080px</p>
+                    </div>
+                  </div>
                 </div>
+                <Separator />
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>Telepon / WA</Label><Input name="telepon" value={data.telepon || ""} onChange={handleChange} /></div>
+                    <div className="space-y-2"><Label>Email</Label><Input name="email" value={data.email || ""} onChange={handleChange} /></div>
+                </div>
+                <div className="space-y-2"><Label>Alamat Lengkap</Label><Textarea name="alamat" value={data.alamat || ""} onChange={handleChange} rows={2} /></div>
                 <div className="space-y-2">
-                  <Label htmlFor="established">Tahun Berdiri</Label>
-                  <Input id="established" type="number" defaultValue="1995" />
+                    <Label>Google Maps URL (Embed Src)</Label>
+                    <Input name="google_maps_url" value={data.google_maps_url || ""} onChange={handleChange} />
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
 
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Globe className="h-5 w-5" />
-                Pengaturan Website
-              </CardTitle>
-              <CardDescription>Konfigurasi umum website</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="site-title">Judul Website</Label>
-                  <Input id="site-title" defaultValue="Masjid Al Huda - Website Resmi" />
+            <CardHeader><CardTitle className="flex items-center gap-2"><LayoutGrid className="h-5 w-5"/> Statistik</CardTitle></CardHeader>
+            <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {(data.stats || []).map((stat, i) => (
+                        <div key={i} className="space-y-2 p-3 border rounded bg-slate-50 relative group">
+                            <Label className="text-xs">Angka</Label>
+                            <Input value={stat.value || ""} onChange={(e) => handleStatChange(i, 'value', e.target.value)} className="bg-white"/>
+                            <Label className="text-xs">Label</Label>
+                            <Input value={stat.label || ""} onChange={(e) => handleStatChange(i, 'label', e.target.value)} className="bg-white"/>
+                            
+                            {/* TOMBOL DELETE INDIVIDUAL */}
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="text-red-500 absolute top-0 right-0 h-6 w-6 hover:bg-red-50" 
+                              onClick={() => removeStat(i)}
+                              title="Hapus Statistik Ini"
+                            >
+                              <Trash2 className="h-3 w-3"/>
+                            </Button>
+                        </div>
+                    ))}
+                    <Button variant="outline" className="h-full min-h-[140px] border-dashed" onClick={addStat}><Plus className="mr-2 h-4 w-4"/> Tambah</Button>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="site-language">Bahasa Default</Label>
-                  <Select defaultValue="id">
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="id">Bahasa Indonesia</SelectItem>
-                      <SelectItem value="en">English</SelectItem>
-                      <SelectItem value="ar">العربية</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="meta-description">Meta Description</Label>
-                <Textarea
-                  id="meta-description"
-                  placeholder="Deskripsi untuk SEO..."
-                  defaultValue="Website resmi Masjid Al Huda - Informasi jadwal sholat, kegiatan, donasi, dan layanan masjid"
-                />
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-base font-medium">Mode Maintenance</Label>
-                    <p className="text-sm text-gray-600">Aktifkan untuk maintenance website</p>
-                  </div>
-                  <Switch />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-base font-medium">Registrasi User Baru</Label>
-                    <p className="text-sm text-gray-600">Izinkan pendaftaran user baru</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-base font-medium">Komentar Publik</Label>
-                    <p className="text-sm text-gray-600">Izinkan komentar di artikel/kegiatan</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="appearance" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Palette className="h-5 w-5" />
-                Tema dan Tampilan
-              </CardTitle>
-              <CardDescription>Kustomisasi tampilan website</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Tema Warna</Label>
-                  <div className="grid grid-cols-4 gap-4">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-6 h-6 bg-green-600 rounded-full border-2 border-green-600"></div>
-                      <span className="text-sm">Hijau (Default)</span>
+        <TabsContent value="visimisi" className="space-y-4">
+            <Card>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Target className="h-5 w-5"/> Visi & Misi</CardTitle></CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="space-y-2">
+                        <Label>Visi</Label>
+                        <Textarea name="visi" value={data.visi || ""} onChange={handleChange} className="min-h-[100px]" />
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-6 h-6 bg-blue-600 rounded-full border-2 border-gray-300"></div>
-                      <span className="text-sm">Biru</span>
+                    <Separator />
+                    <div className="space-y-3">
+                        <Label>Misi</Label>
+                        {(data.misi || []).map((item, i) => (
+                            <div key={i} className="flex gap-2">
+                                <span className="p-2 bg-slate-100 rounded text-sm font-bold w-8 text-center">{i+1}</span>
+                                <Input value={item || ""} onChange={(e) => handleMisiChange(i, e.target.value)} />
+                                <Button size="icon" variant="ghost" className="text-red-500 hover:bg-red-50" onClick={() => removeMisi(i)}><Trash2 className="h-4 w-4"/></Button>
+                            </div>
+                        ))}
+                        <Button size="sm" variant="outline" onClick={addMisi}><Plus className="h-4 w-4 mr-2"/> Tambah Misi</Button>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-6 h-6 bg-purple-600 rounded-full border-2 border-gray-300"></div>
-                      <span className="text-sm">Ungu</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-6 h-6 bg-orange-600 rounded-full border-2 border-gray-300"></div>
-                      <span className="text-sm">Orange</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="logo-upload">Logo Masjid</Label>
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
-                      <Building className="h-8 w-8 text-gray-400" />
-                    </div>
-                    <Button variant="outline">
-                      <Upload className="h-4 w-4 mr-2" />
-                      Upload Logo
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="banner-upload">Banner Header</Label>
-                  <div className="flex items-center gap-4">
-                    <div className="w-32 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
-                      <span className="text-xs text-gray-400">Banner</span>
-                    </div>
-                    <Button variant="outline">
-                      <Upload className="h-4 w-4 mr-2" />
-                      Upload Banner
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="font-family">Font Family</Label>
-                    <Select defaultValue="inter">
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="inter">Inter</SelectItem>
-                        <SelectItem value="roboto">Roboto</SelectItem>
-                        <SelectItem value="poppins">Poppins</SelectItem>
-                        <SelectItem value="arabic">Arabic Font</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="font-size">Ukuran Font</Label>
-                    <Select defaultValue="medium">
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="small">Kecil</SelectItem>
-                        <SelectItem value="medium">Sedang</SelectItem>
-                        <SelectItem value="large">Besar</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-base font-medium">Mode Gelap</Label>
-                    <p className="text-sm text-gray-600">Aktifkan tema gelap</p>
-                  </div>
-                  <Switch />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+            </Card>
         </TabsContent>
 
-        <TabsContent value="notifications" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="h-5 w-5" />
-                Pengaturan Notifikasi
-              </CardTitle>
-              <CardDescription>Konfigurasi sistem notifikasi</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-base font-medium">Notifikasi Email</Label>
-                    <p className="text-sm text-gray-600">Kirim notifikasi via email</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-base font-medium">Notifikasi WhatsApp</Label>
-                    <p className="text-sm text-gray-600">Kirim notifikasi via WhatsApp</p>
-                  </div>
-                  <Switch />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-base font-medium">Push Notification</Label>
-                    <p className="text-sm text-gray-600">Notifikasi browser</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-              </div>
-
-              <div className="space-y-4 pt-4 border-t">
-                <h3 className="font-semibold">Pengaturan Email</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="smtp-host">SMTP Host</Label>
-                    <Input id="smtp-host" placeholder="smtp.gmail.com" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="smtp-port">SMTP Port</Label>
-                    <Input id="smtp-port" placeholder="587" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="smtp-username">Username</Label>
-                    <Input id="smtp-username" placeholder="email@gmail.com" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="smtp-password">Password</Label>
-                    <Input id="smtp-password" type="password" placeholder="••••••••" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4 pt-4 border-t">
-                <h3 className="font-semibold">Pengaturan WhatsApp</h3>
-                <div className="space-y-2">
-                  <Label htmlFor="whatsapp-api">WhatsApp API Key</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="whatsapp-api"
-                      type={showApiKey ? "text" : "password"}
-                      placeholder="API Key WhatsApp Business"
-                    />
-                    <Button variant="outline" size="icon" onClick={() => setShowApiKey(!showApiKey)}>
-                      {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="sejarah" className="space-y-4">
+            <Card>
+                <CardHeader><CardTitle className="flex items-center gap-2"><History className="h-5 w-5"/> Sejarah</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                    {(data.sejarah || []).map((item, i) => (
+                        <div key={i} className="flex flex-col md:flex-row gap-3 items-start p-4 border rounded-lg bg-slate-50 relative">
+                             <div className="w-32 space-y-1"><Label className="text-xs">Tahun</Label><Input value={item.tahun || ""} onChange={(e) => handleSejarahChange(i, 'tahun', e.target.value)} className="bg-white"/></div>
+                             <div className="flex-1 space-y-1"><Label className="text-xs">Peristiwa</Label><Input value={item.peristiwa || ""} onChange={(e) => handleSejarahChange(i, 'peristiwa', e.target.value)} className="bg-white"/></div>
+                             <div className="flex-1 space-y-1"><Label className="text-xs">Detail</Label><Input value={item.detail || ""} onChange={(e) => handleSejarahChange(i, 'detail', e.target.value)} className="bg-white"/></div>
+                             <Button size="icon" variant="ghost" className="text-red-500 mt-6 hover:bg-red-50" onClick={() => removeSejarah(i)}><Trash2 className="h-4 w-4"/></Button>
+                        </div>
+                    ))}
+                    <Button variant="outline" className="w-full border-dashed" onClick={addSejarah}><Plus className="h-4 w-4 mr-2"/> Tambah Sejarah</Button>
+                </CardContent>
+            </Card>
         </TabsContent>
 
-        <TabsContent value="integrations" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5" />
-                Integrasi Layanan
-              </CardTitle>
-              <CardDescription>Konfigurasi integrasi dengan layanan eksternal</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                      <span className="text-green-600 font-bold">M</span>
+        <TabsContent value="fasilitas" className="space-y-4">
+            <Card>
+                <CardHeader><CardTitle className="flex items-center gap-2"><LayoutGrid className="h-5 w-5"/> Fasilitas</CardTitle></CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {(data.fasilitas || []).map((item: any, i) => (
+                            <div key={i} className="p-4 border rounded-lg space-y-3 bg-white relative">
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-1"><Label className="text-xs">Nama</Label><Input value={item.nama || ""} onChange={(e) => handleFasilitasChange(i, 'nama', e.target.value)} /></div>
+                                    <div className="space-y-1"><Label className="text-xs">Kapasitas</Label><Input value={item.kapasitas || ""} onChange={(e) => handleFasilitasChange(i, 'kapasitas', e.target.value)} /></div>
+                                </div>
+                                <div className="space-y-1"><Label className="text-xs">Deskripsi</Label><Textarea value={item.deskripsi || ""} onChange={(e) => handleFasilitasChange(i, 'deskripsi', e.target.value)} rows={2}/></div>
+                                <div className="space-y-1"><Label className="text-xs">Icon (String)</Label><Input value={item.icon || ""} onChange={(e) => handleFasilitasChange(i, 'icon', e.target.value)} /></div>
+                                <Button size="icon" variant="ghost" className="text-red-500 absolute top-0 right-2 hover:bg-red-50" onClick={() => removeFasilitas(i)}><Trash2 className="h-4 w-4"/></Button>
+                            </div>
+                        ))}
+                         <Button variant="outline" className="h-full min-h-[200px] border-dashed" onClick={addFasilitas}><Plus className="h-4 w-4 mr-2"/> Tambah</Button>
                     </div>
-                    <div>
-                      <h3 className="font-semibold">Midtrans Payment</h3>
-                      <p className="text-sm text-gray-600">Gateway pembayaran untuk donasi</p>
-                    </div>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <span className="text-blue-600 font-bold">G</span>
-                    </div>
-                    <div>
-                      <h3 className="font-semibold">Google Maps</h3>
-                      <p className="text-sm text-gray-600">Integrasi peta lokasi masjid</p>
-                    </div>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                      <span className="text-purple-600 font-bold">W</span>
-                    </div>
-                    <div>
-                      <h3 className="font-semibold">WhatsApp Business</h3>
-                      <p className="text-sm text-gray-600">Notifikasi dan komunikasi</p>
-                    </div>
-                  </div>
-                  <Switch />
-                </div>
-
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                      <span className="text-orange-600 font-bold">F</span>
-                    </div>
-                    <div>
-                      <h3 className="font-semibold">Firebase</h3>
-                      <p className="text-sm text-gray-600">Push notifications dan analytics</p>
-                    </div>
-                  </div>
-                  <Switch />
-                </div>
-              </div>
-
-              <div className="space-y-4 pt-4 border-t">
-                <h3 className="font-semibold">API Keys</h3>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="midtrans-key">Midtrans Server Key</Label>
-                    <Input id="midtrans-key" type="password" placeholder="••••••••" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="google-maps-key">Google Maps API Key</Label>
-                    <Input id="google-maps-key" type="password" placeholder="••••••••" />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+            </Card>
         </TabsContent>
 
-        <TabsContent value="security" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
-                Keamanan Sistem
-              </CardTitle>
-              <CardDescription>Pengaturan keamanan dan akses</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-base font-medium">Two-Factor Authentication</Label>
-                    <p className="text-sm text-gray-600">Aktifkan 2FA untuk admin</p>
-                  </div>
-                  <Switch />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-base font-medium">Login Attempt Limit</Label>
-                    <p className="text-sm text-gray-600">Batasi percobaan login</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-base font-medium">IP Whitelist</Label>
-                    <p className="text-sm text-gray-600">Batasi akses berdasarkan IP</p>
-                  </div>
-                  <Switch />
-                </div>
-              </div>
-
-              <div className="space-y-4 pt-4 border-t">
-                <h3 className="font-semibold">Password Policy</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="min-password">Minimum Karakter</Label>
-                    <Input id="min-password" type="number" defaultValue="8" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password-expiry">Masa Berlaku (hari)</Label>
-                    <Input id="password-expiry" type="number" defaultValue="90" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <input type="checkbox" id="require-uppercase" defaultChecked />
-                    <Label htmlFor="require-uppercase">Wajib huruf besar</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <input type="checkbox" id="require-numbers" defaultChecked />
-                    <Label htmlFor="require-numbers">Wajib angka</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <input type="checkbox" id="require-symbols" />
-                    <Label htmlFor="require-symbols">Wajib simbol</Label>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="program" className="space-y-4">
+             {(data.program || []).map((cat, catIdx) => (
+                 <Card key={catIdx} className="border-l-4 border-l-emerald-500">
+                    <CardHeader className="pb-2">
+                        <div className="flex items-center gap-4">
+                            <Input value={cat.kategori || ""} onChange={(e) => handleProgramCatChange(catIdx, e.target.value)} className="font-bold text-lg h-10 w-full md:w-1/2" placeholder="Nama Kategori" />
+                            <Button variant="ghost" size="sm" className="text-red-500 ml-auto hover:bg-red-50" onClick={() => removeProgramCat(catIdx)}><Trash2 className="h-4 w-4"/> Hapus</Button>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-3 pl-4 border-l">
+                            {(cat.programs || []).map((prog: any, progIdx) => (
+                                <div key={progIdx} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center border-b pb-3 mb-3 last:border-0">
+                                    <div className="space-y-1"><Label className="text-xs">Nama</Label><Input value={prog.nama || ""} onChange={(e) => handleProgramItemChange(catIdx, progIdx, 'nama', e.target.value)} /></div>
+                                    <div className="space-y-1"><Label className="text-xs">Jadwal</Label><Input value={prog.jadwal || ""} onChange={(e) => handleProgramItemChange(catIdx, progIdx, 'jadwal', e.target.value)} /></div>
+                                    <div className="space-y-1"><Label className="text-xs">Peserta</Label><Input value={prog.peserta || ""} onChange={(e) => handleProgramItemChange(catIdx, progIdx, 'peserta', e.target.value)} /></div>
+                                    <div className="space-y-1 relative">
+                                        <Label className="text-xs">Icon</Label>
+                                        <div className="flex gap-2">
+                                            <Input value={prog.icon || ""} onChange={(e) => handleProgramItemChange(catIdx, progIdx, 'icon', e.target.value)} />
+                                            <Button size="icon" variant="ghost" className="text-red-500 hover:bg-red-50" onClick={() => removeProgramItem(catIdx, progIdx)}><Trash2 className="h-4 w-4"/></Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                            <Button size="sm" variant="secondary" onClick={() => addProgramItem(catIdx)}><Plus className="h-3 w-3 mr-2"/> Tambah Item</Button>
+                        </div>
+                    </CardContent>
+                 </Card>
+             ))}
+             <Button variant="outline" className="w-full border-dashed py-6" onClick={addProgramCat}><Plus className="h-5 w-5 mr-2"/> Tambah Kategori</Button>
         </TabsContent>
 
-        <TabsContent value="backup" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5" />
-                Backup & Restore
-              </CardTitle>
-              <CardDescription>Kelola backup data sistem</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-base font-medium">Auto Backup</Label>
-                    <p className="text-sm text-gray-600">Backup otomatis harian</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="backup-frequency">Frekuensi Backup</Label>
-                  <Select defaultValue="daily">
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="daily">Harian</SelectItem>
-                      <SelectItem value="weekly">Mingguan</SelectItem>
-                      <SelectItem value="monthly">Bulanan</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="backup-retention">Simpan Backup (hari)</Label>
-                  <Input id="backup-retention" type="number" defaultValue="30" />
-                </div>
-              </div>
-
-              <div className="space-y-4 pt-4 border-t">
-                <h3 className="font-semibold">Manual Backup</h3>
-                <div className="flex gap-2">
-                  <Button>
-                    <Download className="h-4 w-4 mr-2" />
-                    Backup Database
-                  </Button>
-                  <Button variant="outline">
-                    <Download className="h-4 w-4 mr-2" />
-                    Backup Files
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-4 pt-4 border-t">
-                <h3 className="font-semibold">Restore</h3>
-                <div className="space-y-2">
-                  <Label htmlFor="restore-file">Upload Backup File</Label>
-                  <Input id="restore-file" type="file" accept=".sql,.zip" />
-                </div>
-                <Button variant="destructive">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Restore Data
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="struktur" className="space-y-4">
+             <Card>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Users className="h-5 w-5"/> Struktur</CardTitle></CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {(data.struktur || []).map((item: any, i) => (
+                            <div key={i} className="p-4 border rounded-lg space-y-3 bg-white relative">
+                                <div className="space-y-1"><Label className="text-xs">Jabatan</Label><Input value={item.jabatan || ""} onChange={(e) => handleStrukturChange(i, 'jabatan', e.target.value)} className="font-bold bg-slate-50" /></div>
+                                <div className="space-y-1"><Label className="text-xs">Nama</Label><Input value={item.nama || ""} onChange={(e) => handleStrukturChange(i, 'nama', e.target.value)} /></div>
+                                <div className="space-y-1"><Label className="text-xs">Pendidikan</Label><Input value={item.pendidikan || ""} onChange={(e) => handleStrukturChange(i, 'pendidikan', e.target.value)} /></div>
+                                <div className="space-y-1"><Label className="text-xs">Pengalaman</Label><Input value={item.pengalaman || ""} onChange={(e) => handleStrukturChange(i, 'pengalaman', e.target.value)} /></div>
+                                <div className="space-y-1"><Label className="text-xs">Icon</Label><Input value={item.icon || ""} onChange={(e) => handleStrukturChange(i, 'icon', e.target.value)} /></div>
+                                <Button size="icon" variant="ghost" className="text-red-500 absolute top-0 right-2 hover:bg-red-50" onClick={() => removeStruktur(i)}><Trash2 className="h-4 w-4"/></Button>
+                            </div>
+                        ))}
+                         <Button variant="outline" className="h-full min-h-[250px] border-dashed" onClick={addStruktur}><Plus className="h-4 w-4 mr-2"/> Tambah</Button>
+                    </div>
+                </CardContent>
+            </Card>
         </TabsContent>
       </Tabs>
     </div>
