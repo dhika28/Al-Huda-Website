@@ -3,7 +3,7 @@
 import { useState, useEffect, Key } from "react"
 import {
   Calendar, Search, Plus, Clock, MapPin, Trash2, Pencil, RefreshCw, BookOpen, GraduationCap, Heart, Mic, Award, Star, User, Phone, Banknote, MoreHorizontal, CheckCircle, XCircle, PlayCircle, Download, FileSpreadsheet, FileText as FileIcon, Users, ChevronLeft, ChevronRight, PhoneIncoming, Info, X, FileText, Printer, CheckCircle2,
-  Image as ImageIcon, Loader2 // Tambah icon Image & Loader
+  Image as ImageIcon, Loader2
 } from "lucide-react"
 import { Toaster, toast } from "react-hot-toast"
 
@@ -34,30 +34,26 @@ interface ActivityFormState {
   biaya: string
   kontak: string
   fasilitas: string 
-  gambar: string // URL gambar (preview atau dari server)
+  gambar: string 
 }
 
 export default function AdminEventsPage() {
   const [events, setEvents] = useState<Activity[]>([])
   const [isLoading, setIsLoading] = useState(true)
   
-  // State khusus file mentah untuk dikirim ke backend
   const [fileRaw, setFileRaw] = useState<File | null>(null)
   
-  // Filter & Pagination State
   const [searchTerm, setSearchTerm] = useState("")
   const [filterStatus, setFilterStatus] = useState("all")
   const [activeTab, setActiveTab] = useState("events")
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 6
 
-  // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isEditMode, setIsEditMode] = useState(false)
   const [currentId, setCurrentId] = useState<number | null>(null)
   const [selectedEventDetail, setSelectedEventDetail] = useState<Activity | null>(null)
   
-  // Form State Default
   const defaultForm: ActivityFormState = {
     judul: "", kategori: "Kajian", tanggal: "", waktu: "", lokasi: "Masjid Al-Huda",
     pemateri: "", tema: "", deskripsi: "",
@@ -66,8 +62,6 @@ export default function AdminEventsPage() {
   }
   const [formData, setFormData] = useState<ActivityFormState>(defaultForm)
 
-  // --- FETCH DATA ---
-  // Sesuaikan URL ini dengan alamat backend Golang Anda
   const API_BASE_URL = "http://localhost:8080/api/v1/activities" 
 
   const fetchData = async () => {
@@ -88,35 +82,29 @@ export default function AdminEventsPage() {
     fetchData()
   }, [])
 
-  // Reset pagination when filter changes
   useEffect(() => {
     setCurrentPage(1)
   }, [filterStatus, searchTerm, activeTab])
 
 
-  // --- HANDLER UPLOAD FOTO (PREVIEW) ---
+  // --- HANDLERS ---
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Validasi ukuran (max 2MB)
     if (file.size > 2 * 1024 * 1024) {
         toast.error("Ukuran file maksimal 2MB")
         return
     }
 
-    // Simpan file asli ke state untuk dikirim nanti
     setFileRaw(file)
-    
-    // Buat URL preview sementara
     const previewUrl = URL.createObjectURL(file)
     setFormData(prev => ({ ...prev, gambar: previewUrl }))
   }
 
-  // --- HANDLERS ---
   const handleOpenCreate = () => {
     setIsEditMode(false)
-    setFileRaw(null) // Reset file
+    setFileRaw(null)
     setFormData(defaultForm)
     setIsModalOpen(true)
   }
@@ -124,7 +112,7 @@ export default function AdminEventsPage() {
   const handleOpenEdit = (activity: Activity) => {
     setIsEditMode(true)
     setCurrentId(activity.id)
-    setFileRaw(null) // Reset file baru
+    setFileRaw(null)
     
     const fasilitasString = Array.isArray(activity.fasilitas) 
         ? activity.fasilitas.join(", ") 
@@ -147,7 +135,6 @@ export default function AdminEventsPage() {
     setIsModalOpen(true)
   }
 
-  // --- SUBMIT HANDLER (SMART SWITCH: JSON vs FORMDATA) ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const loadingToast = toast.loading("Menyimpan data...")
@@ -161,17 +148,12 @@ export default function AdminEventsPage() {
         method = "PUT"
       }
 
-      // LOGIKA BARU: Tentukan apakah harus pakai FormData atau JSON
-      // Kita pakai FormData jika: 
-      // 1. Ini mode CREATE (tambah baru)
-      // 2. Ini mode EDIT DAN user memilih file gambar baru (fileRaw tidak null)
       const useFormData = !isEditMode || (isEditMode && fileRaw !== null);
 
       let bodyData;
       let headers = {};
 
       if (useFormData) {
-          // --- SKENARIO A: UPLOAD GAMBAR (Pakai FormData) ---
           const formDataToSend = new FormData()
           
           formDataToSend.append("judul", formData.judul)
@@ -185,7 +167,6 @@ export default function AdminEventsPage() {
           formDataToSend.append("biaya", formData.biaya)
           formDataToSend.append("kontak", formData.kontak)
           
-          // Fasilitas dikirim sebagai JSON String di dalam FormData
           const fasilitasArray = formData.fasilitas
             ? formData.fasilitas.split(",").map(f => f.trim()).filter(f => f !== "")
             : [];
@@ -193,22 +174,17 @@ export default function AdminEventsPage() {
 
           formDataToSend.append("status", isEditMode ? (events.find(e => e.id === currentId)?.status || 'terbuka') : 'terbuka') 
           
-          // Kirim URL gambar lama jika tidak diganti
           if (!fileRaw) {
              formDataToSend.append("gambar", formData.gambar) 
           }
 
-          // Kirim File Baru
           if (fileRaw) {
             formDataToSend.append("gambar_file", fileRaw)
           }
 
           bodyData = formDataToSend;
-          // PENTING: Jangan set Content-Type header manual saat pakai FormData!
       
       } else {
-          // --- SKENARIO B: EDIT TEKS SAJA (Pakai JSON) ---
-          // Ini solusi agar tidak kena "Invalid Payload" di Backend yang hanya terima JSON
           const fasilitasArray = formData.fasilitas
             ? formData.fasilitas.split(",").map(f => f.trim()).filter(f => f !== "")
             : [];
@@ -224,16 +200,15 @@ export default function AdminEventsPage() {
               deskripsi: formData.deskripsi,
               biaya: formData.biaya,
               kontak: formData.kontak,
-              fasilitas: fasilitasArray, // Kirim Array langsung (bukan string)
+              fasilitas: fasilitasArray,
               status: events.find(e => e.id === currentId)?.status || 'terbuka',
-              gambar: formData.gambar // URL gambar lama
+              gambar: formData.gambar
           };
 
           bodyData = JSON.stringify(payload);
           headers = { 'Content-Type': 'application/json' };
       }
 
-      // EKSEKUSI FETCH
       const res = await fetch(url, {
         method: method,
         headers: headers,
@@ -258,10 +233,8 @@ export default function AdminEventsPage() {
     }
   }
 
-  // --- DELETE HANDLER ---
-  // --- DELETE HANDLER (DENGAN TOAST KONFIRMASI) ---
+  // --- DELETE HANDLER (DENGAN TOAST) ---
   const handleDelete = (id: number) => {
-    // Memunculkan Custom Toast
     toast((t) => (
       <div className="flex flex-col gap-2 w-[280px]">
         <div className="flex items-start gap-3">
@@ -277,30 +250,19 @@ export default function AdminEventsPage() {
         </div>
         
         <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-slate-100">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="h-8 text-xs"
-            onClick={() => toast.dismiss(t.id)} // Tutup toast jika batal
-          >
-            Batal
-          </Button>
+          <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => toast.dismiss(t.id)}>Batal</Button>
           <Button 
             size="sm" 
             className="bg-red-600 hover:bg-red-700 text-white h-8 text-xs"
             onClick={async () => {
-              toast.dismiss(t.id) // Tutup toast konfirmasi
-              
-              // Eksekusi Hapus
+              toast.dismiss(t.id)
               const loadingToast = toast.loading("Menghapus data...")
               try {
                   const res = await fetch(`${API_BASE_URL}/${id}`, { method: 'DELETE' })
                   if (!res.ok) throw new Error("Gagal hapus")
-                  
                   toast.success("Kegiatan berhasil dihapus")
-                  fetchData() // Refresh data
+                  fetchData()
               } catch (e) { 
-                  console.error(e)
                   toast.error("Gagal menghapus kegiatan") 
               } finally {
                   toast.dismiss(loadingToast)
@@ -311,21 +273,15 @@ export default function AdminEventsPage() {
           </Button>
         </div>
       </div>
-    ), { 
-      duration: Infinity, // Toast tidak akan hilang sendiri sampai diklik
-      position: "top-center"
-    })
+    ), { duration: Infinity, position: "top-center" })
   }
   
-  // --- STATUS UPDATE HANDLER ---
-  // Fungsi ini tetap menggunakan JSON karena tidak mengirim file
   const handleUpdateStatus = async (id: number, newStatus: ActivityStatus, currentData: Activity) => {
     const loadingToast = toast.loading("Updating status...")
     try {
         const payload = {
             ...currentData,
             status: newStatus,
-            // Format tanggal agar sesuai input backend jika perlu (YYYY-MM-DD)
             tanggal: currentData.tanggal ? currentData.tanggal.split('T')[0] : "",
             fasilitas: Array.isArray(currentData.fasilitas) ? currentData.fasilitas.join(", ") : (currentData.fasilitas || "")
         }
@@ -337,7 +293,6 @@ export default function AdminEventsPage() {
         })
 
         if (!res.ok) throw new Error("Gagal update status")
-        
         toast.success(`Status diubah menjadi: ${newStatus}`)
         fetchData()
     } catch (error) {
@@ -347,9 +302,185 @@ export default function AdminEventsPage() {
     }
   }
 
-  // --- EXPORT HANDLERS (Placeholder) ---
-  const handleExportExcel = () => toast("Fitur export Excel belum diimplementasi")
-  const handleExportPDF = () => toast("Fitur export PDF belum diimplementasi")
+  // --- EXPORT EXCEL (CSV) ---
+  // --- EXPORT EXCEL (CSV) ---
+  const handleExportExcel = () => {
+    if (events.length === 0) {
+        toast.error("Tidak ada data untuk diexport")
+        return
+    }
+
+    // Header CSV
+    const headers = ["ID", "Judul", "Kategori", "Tanggal", "Waktu", "Lokasi", "Pemateri", "Biaya", "Status"]
+    
+    // Rows Data
+    const rows = events.map(e => [
+        e.id,
+        `"${e.judul.replace(/"/g, '""')}"`,
+        e.kategori,
+        // PERBAIKAN DISINI: Cek apakah tanggal ada sebelum melakukan split
+        e.tanggal ? e.tanggal.split('T')[0] : "-", 
+        `"${e.waktu || '-'}"`,
+        `"${e.lokasi || '-'}"`,
+        `"${e.pemateri || '-'}"`,
+        `"${e.biaya || '-'}"`,
+        e.status
+    ])
+
+    // Gabungkan Header dan Rows
+    const csvContent = [
+        headers.join(","),
+        ...rows.map(r => r.join(","))
+    ].join("\n")
+
+    // Buat Blob dan Link Download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.setAttribute("download", `Laporan_Kegiatan_Masjid_${new Date().toISOString().split('T')[0]}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    
+    toast.success("Laporan Excel berhasil diunduh")
+  }
+
+  // --- EXPORT PDF (KOP SURAT RESMI) ---
+  // --- EXPORT PDF (KOP SURAT RESMI) ---
+  const handleExportPDF = () => {
+    if (events.length === 0) {
+        toast.error("Tidak ada data untuk dicetak")
+        return
+    }
+
+    // Buka jendela baru untuk print
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) {
+        toast.error("Pop-up diblokir browser. Izinkan pop-up untuk mencetak.")
+        return
+    }
+
+    const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+
+    // Template HTML untuk Laporan Resmi
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Laporan Kegiatan Masjid</title>
+        <style>
+          @media print {
+            @page { size: A4; margin: 2cm; }
+            body { -webkit-print-color-adjust: exact; }
+          }
+          body { font-family: 'Times New Roman', serif; color: #000; }
+          
+          /* KOP SURAT */
+          .kop-surat { 
+            display: flex; 
+            align-items: center; 
+            border-bottom: 3px double #000; 
+            padding-bottom: 15px; 
+            margin-bottom: 20px; 
+          }
+          
+          .header-text { text-align: center; flex: 1; }
+          .header-text h1 { font-size: 18pt; margin: 0; font-weight: bold; text-transform: uppercase; }
+          .header-text h2 { font-size: 14pt; margin: 5px 0 0 0; font-weight: bold; }
+          .header-text p { font-size: 10pt; margin: 5px 0 0 0; font-style: italic; }
+          
+          /* CONTENT */
+          h3 { text-align: center; text-decoration: underline; margin-bottom: 5px; font-size: 14pt; }
+          .periode { text-align: center; font-size: 11pt; margin-bottom: 20px; }
+          
+          /* TABLE */
+          table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+          th, td { border: 1px solid #000; padding: 8px; font-size: 11pt; vertical-align: top; }
+          th { background-color: #f0f0f0; text-align: center; font-weight: bold; }
+          td.center { text-align: center; }
+          
+          /* SIGNATURE */
+          .signature-section { display: flex; justify-content: flex-end; margin-top: 50px; }
+          .signature-box { text-align: center; width: 250px; }
+          .signature-box p { margin: 0; font-size: 11pt; }
+          .signature-space { height: 80px; }
+          
+          /* UTILS */
+          .status-badge { 
+             font-size: 9pt; padding: 2px 6px; border-radius: 4px; border: 1px solid #000; 
+             display: inline-block; text-transform: uppercase; font-weight: bold;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="kop-surat">
+           
+           
+           <div class="header-text">
+             <h1>YAYASAN MASJID AL-HUDA</h1>
+             <h2>KOTA ADMINISTRASI JAKARTA</h2>
+             <p>Jl. Contoh Alamat No. 123, Kelurahan, Kecamatan, Kode Pos 12345</p>
+             <p>Telp: (021) 1234567 | Email: info@masjidalhuda.com</p>
+           </div>
+        </div>
+
+        <h3>LAPORAN DATA KEGIATAN</h3>
+        <p class="periode">Dicetak pada Tanggal: ${today}</p>
+
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 5%">No</th>
+              <th style="width: 25%">Nama Kegiatan</th>
+              <th style="width: 15%">Kategori</th>
+              <th style="width: 15%">Waktu & Tanggal</th>
+              <th style="width: 20%">Pemateri</th>
+              <th style="width: 10%">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${events.map((e, index) => `
+              <tr>
+                <td class="center">${index + 1}</td>
+                <td><strong>${e.judul}</strong><br><span style="font-size: 9pt; color: #555;">${e.lokasi || '-'}</span></td>
+                <td class="center">${e.kategori}</td>
+                
+                <td class="center">
+                    ${e.tanggal ? new Date(e.tanggal).toLocaleDateString('id-ID') : '-'}
+                    <br>
+                    ${e.waktu || '-'}
+                </td>
+                
+                <td>${e.pemateri}</td>
+                <td class="center">
+                  <span class="status-badge">${e.status}</span>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <div class="signature-section">
+          <div class="signature-box">
+             <p>Jakarta, ${today}</p>
+             <p>Ketua DKM Masjid Al-Huda</p>
+             <div class="signature-space"></div>
+             <p style="text-decoration: underline; font-weight: bold;">H. Fulan Bin Fulan</p>
+             <p>NIP. -</p>
+          </div>
+        </div>
+        
+        <script>
+           window.onload = function() { window.print(); }
+        </script>
+      </body>
+      </html>
+    `
+
+    printWindow.document.write(htmlContent)
+    printWindow.document.close()
+  }
 
   // --- UTILS ---
   const getCategoryIcon = (cat: string = "") => {
@@ -383,7 +514,6 @@ export default function AdminEventsPage() {
     }
   }
 
-  // --- FILTERING ---
   const filteredEvents = events.filter(e => {
     const matchSearch = e.judul.toLowerCase().includes(searchTerm.toLowerCase()) || 
                         (e.pemateri && e.pemateri.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -391,7 +521,6 @@ export default function AdminEventsPage() {
     return matchSearch && matchStatus
   })
 
-  // --- PAGINATION ---
   const getPaginatedData = (data: any[]) => {
     const startIndex = (currentPage - 1) * itemsPerPage
     return data.slice(startIndex, startIndex + itemsPerPage)
@@ -411,7 +540,6 @@ export default function AdminEventsPage() {
     )
   }
 
-  // --- STATS CALC ---
   const totalEvents = events.length
   const activeEvents = events.filter(e => e.status === 'terbuka').length
   const doneEvents = events.filter(e => e.status === 'selesai').length
@@ -430,6 +558,7 @@ export default function AdminEventsPage() {
         </div>
         
         <div className="flex items-center gap-2">
+
           <Button 
             onClick={handleOpenCreate} 
             className="bg-emerald-600 hover:bg-emerald-700 text-white h-10 shadow-md px-6"
@@ -534,15 +663,9 @@ export default function AdminEventsPage() {
                                             src={event.gambar} 
                                             alt={event.judul} 
                                             className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                                            // --- TAMBAHAN PENTING ---
                                             referrerPolicy="no-referrer" 
-                                            // ------------------------
                                             onError={(e) => {
                                                 console.error("Gagal memuat gambar (Card):", event.gambar); 
-                                                // Opsional: Ganti ke gambar placeholder daripada dihilangkan
-                                                // (e.target as HTMLImageElement).src = '/placeholder.jpg';
-                                                
-                                                // Atau biarkan logic sembunyikan jika benar-benar rusak
                                                 (e.target as HTMLImageElement).style.display = 'none';
                                             }}
                                         />
@@ -581,7 +704,7 @@ export default function AdminEventsPage() {
             )}
         </TabsContent>
 
-        {/* TAB 2: LAPORAN (Sesuai Request) */}
+        {/* TAB 2: LAPORAN (SUDAH IMPLEMENTASI) */}
         <TabsContent value="reports" className="mt-4 print:hidden">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div onClick={handleExportExcel} className="p-6 bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md cursor-pointer group flex flex-col justify-between h-48">
@@ -610,8 +733,6 @@ export default function AdminEventsPage() {
             <DialogDescription>Lengkapi detail kegiatan untuk dipublikasikan. Status awal otomatis "Terbuka".</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 py-2">
-            
-            {/* INPUT GAMBAR */}
             <div className="space-y-2">
                 <Label>Poster / Foto Kegiatan</Label>
                 <div className="flex items-start gap-4">
@@ -652,38 +773,21 @@ export default function AdminEventsPage() {
             </div>
 
             <div className="space-y-1"><Label>Tema Kajian (Opsional)</Label><Input value={formData.tema} onChange={e=>setFormData({...formData, tema: e.target.value})} placeholder="Topik spesifik yang dibahas"/></div>
-            
             <div className="space-y-1"><Label>Deskripsi Lengkap *</Label><Textarea value={formData.deskripsi} onChange={e=>setFormData({...formData, deskripsi: e.target.value})} required placeholder="Penjelasan detail mengenai kegiatan..." className="h-24"/></div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1"><Label>Biaya</Label><Input value={formData.biaya} onChange={e=>setFormData({...formData, biaya: e.target.value})} placeholder="Gratis / Rp..."/></div>
                 <div className="space-y-1"><Label>Kontak CP</Label><Input value={formData.kontak} onChange={e=>setFormData({...formData, kontak: e.target.value})} placeholder="08..."/></div>
             </div>
-            
-            <div className="space-y-1">
-                <Label>Fasilitas</Label>
-                <Input value={formData.fasilitas} onChange={e=>setFormData({...formData, fasilitas: e.target.value})} placeholder="Pisahkan dengan koma, cth: Snack, Sertifikat, AC"/>
-            </div>
-
-            <DialogFooter className="pt-4 border-t">
-                <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>Batal</Button>
-                <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700">Simpan Data</Button>
-            </DialogFooter>
+            <div className="space-y-1"><Label>Fasilitas</Label><Input value={formData.fasilitas} onChange={e=>setFormData({...formData, fasilitas: e.target.value})} placeholder="Pisahkan dengan koma, cth: Snack, Sertifikat, AC"/></div>
+            <DialogFooter className="pt-4 border-t"><Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>Batal</Button><Button type="submit" className="bg-emerald-600 hover:bg-emerald-700">Simpan Data</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
       
-      {/* --- DETAIL MODAL --- */}
-      {selectedEventDetail && (
-        <EventDetailModal data={selectedEventDetail} onClose={() => setSelectedEventDetail(null)} />
-      )}
+      {selectedEventDetail && (<EventDetailModal data={selectedEventDetail} onClose={() => setSelectedEventDetail(null)} />)}
     </div>
   )
 }
-
-/* =======================
-   SUB-COMPONENTS
-======================= */
 
 function StatCard({ title, value, icon, bgIcon }: { title: string; value: string; icon: React.ReactNode; bgIcon: string }) {
     return (
@@ -714,23 +818,9 @@ function EventDetailModal({ data, onClose }: { data: Activity; onClose: () => vo
                 </div>
                 
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                    {/* --- Image Display --- */}
-                    {/* --- Image Display (Detail) --- */}
-                    {/* --- Image Display (Detail) --- */}
                     {data.gambar && (
                         <div className="w-full h-56 rounded-lg overflow-hidden border border-slate-200 mb-4 relative bg-gray-50 flex items-center justify-center">
-                            <img 
-                                src={data.gambar} 
-                                alt={data.judul} 
-                                className="w-full h-full object-cover" 
-                                // --- TAMBAHAN PENTING ---
-                                referrerPolicy="no-referrer"
-                                // ------------------------
-                                onError={(e) => {
-                                    console.error("Gagal memuat gambar (Detail):", data.gambar);
-                                    (e.target as HTMLImageElement).style.display = 'none';
-                                }}
-                            />
+                            <img src={data.gambar} alt={data.judul} className="w-full h-full object-cover" referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                         </div>
                     )}
                     <div className="grid grid-cols-1 gap-4 text-sm">
@@ -747,14 +837,7 @@ function EventDetailModal({ data, onClose }: { data: Activity; onClose: () => vo
                         <div className="p-3 bg-slate-50 rounded border border-slate-100"><Label className="text-slate-500 text-xs font-bold uppercase">Deskripsi</Label><p className="font-medium text-slate-800 mt-1 whitespace-pre-line">{data.deskripsi}</p></div>
                         {(data.biaya || data.kontak) && <div className="grid grid-cols-2 gap-4 border-t pt-4"><div className="space-y-1"><Label className="text-slate-500 text-xs">Biaya</Label><p className="font-medium text-emerald-600">{data.biaya}</p></div><div className="space-y-1"><Label className="text-slate-500 text-xs">Kontak</Label><p className="font-medium text-slate-900">{data.kontak}</p></div></div>}
                         {data.fasilitas && (
-                            <div className="space-y-2 pt-2">
-                                <Label className="text-slate-500 text-xs">Fasilitas</Label>
-                                <div className="flex flex-wrap gap-2">
-                                    {(Array.isArray(data.fasilitas) ? data.fasilitas : String(data.fasilitas).split(',')).map((f: string, i: Key | null | undefined) => (
-                                        <Badge key={i} variant="secondary" className="text-xs">{f.trim()}</Badge>
-                                    ))}
-                                </div>
-                            </div>
+                            <div className="space-y-2 pt-2"><Label className="text-slate-500 text-xs">Fasilitas</Label><div className="flex flex-wrap gap-2">{(Array.isArray(data.fasilitas) ? data.fasilitas : String(data.fasilitas).split(',')).map((f: string, i: Key | null | undefined) => (<Badge key={i} variant="secondary" className="text-xs">{f.trim()}</Badge>))}</div></div>
                         )}
                     </div>
                 </div>
