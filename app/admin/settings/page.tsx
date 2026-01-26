@@ -72,7 +72,6 @@ export default function AdminProfilePage() {
   }
 
   // --- HELPER: CONFIRM DELETE TOAST ---
-  // Fungsi ini memunculkan Toast dengan tombol YA / TIDAK
   const confirmDelete = (onConfirm: () => void) => {
     toast((t) => (
       <div className="flex flex-col gap-2">
@@ -87,19 +86,19 @@ export default function AdminProfilePage() {
           <Button 
             size="sm" 
             variant="destructive" 
-            className="h-8 text-xs w-full"
+            className="h-7 text-xs w-full"
             onClick={() => {
               onConfirm()
               toast.dismiss(t.id)
-              toast.success("Item dihapus dari draft. JANGAN LUPA KLIK SIMPAN!", { duration: 4000, icon: '💾' })
+              toast.success("Item dihapus (Draft). Klik Simpan untuk permanen.", { duration: 3000, icon: '🗑️' })
             }}
           >
-            Ya, Hapus
+            Ya
           </Button>
           <Button 
             size="sm" 
             variant="outline" 
-            className="h-8 text-xs w-full bg-white"
+            className="h-7 text-xs w-full bg-white"
             onClick={() => toast.dismiss(t.id)}
           >
             Batal
@@ -123,7 +122,7 @@ export default function AdminProfilePage() {
     }
   }
 
-  // --- DYNAMIC ARRAY HANDLERS (UPDATED WITH CONFIRM) ---
+  // --- DYNAMIC ARRAY HANDLERS ---
 
   // -> MISI
   const handleMisiChange = (idx: number, val: string) => {
@@ -235,10 +234,10 @@ export default function AdminProfilePage() {
     })
   }
 
-  // --- SUBMIT DENGAN TOAST ---
+  // --- SUBMIT ---
   const handleSubmit = async () => {
     setIsSaving(true)
-    const toastId = toast.loading("Sedang menyimpan data ke database...")
+    const toastId = toast.loading("Menyimpan perubahan...")
 
     try {
       const formData = new FormData()
@@ -269,7 +268,6 @@ export default function AdminProfilePage() {
       
       setData(prev => ({ ...prev, ...updatedData }))
       setBgFile(null)
-      
       toast.success("Profil berhasil disimpan!", { id: toastId })
 
     } catch (error: any) {
@@ -291,9 +289,12 @@ export default function AdminProfilePage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Profil Masjid</h1>
-          <p className="text-gray-600 text-sm mt-1"> Kelola informasi halaman depan masjid</p>
+          <p className="text-gray-600 text-sm mt-1">Kelola informasi halaman depan masjid</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={fetchData} disabled={isSaving}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} /> Reset
+          </Button>
           <Button onClick={handleSubmit} disabled={isSaving} className="bg-emerald-600 hover:bg-emerald-700">
             {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin"/> : <Save className="h-4 w-4 mr-2" />} Simpan
           </Button>
@@ -310,6 +311,7 @@ export default function AdminProfilePage() {
           <TabsTrigger value="struktur" className="py-2">Struktur</TabsTrigger>
         </TabsList>
 
+        {/* --- TAB UTAMA --- */}
         <TabsContent value="utama" className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
@@ -369,17 +371,7 @@ export default function AdminProfilePage() {
                             <Input value={stat.value || ""} onChange={(e) => handleStatChange(i, 'value', e.target.value)} className="bg-white"/>
                             <Label className="text-xs">Label</Label>
                             <Input value={stat.label || ""} onChange={(e) => handleStatChange(i, 'label', e.target.value)} className="bg-white"/>
-                            
-                            {/* TOMBOL DELETE INDIVIDUAL */}
-                            <Button 
-                              size="icon" 
-                              variant="ghost" 
-                              className="text-red-500 absolute top-0 right-0 h-6 w-6 hover:bg-red-50" 
-                              onClick={() => removeStat(i)}
-                              title="Hapus Statistik Ini"
-                            >
-                              <Trash2 className="h-3 w-3"/>
-                            </Button>
+                            <Button size="icon" variant="ghost" className="text-red-500 absolute top-0 right-0 h-6 w-6 hover:bg-red-50" onClick={() => removeStat(i)}><Trash2 className="h-3 w-3"/></Button>
                         </div>
                     ))}
                     <Button variant="outline" className="h-full min-h-[140px] border-dashed" onClick={addStat}><Plus className="mr-2 h-4 w-4"/> Tambah</Button>
@@ -429,6 +421,7 @@ export default function AdminProfilePage() {
             </Card>
         </TabsContent>
 
+        {/* --- FASILITAS (NO ICON) --- */}
         <TabsContent value="fasilitas" className="space-y-4">
             <Card>
                 <CardHeader><CardTitle className="flex items-center gap-2"><LayoutGrid className="h-5 w-5"/> Fasilitas</CardTitle></CardHeader>
@@ -441,16 +434,16 @@ export default function AdminProfilePage() {
                                     <div className="space-y-1"><Label className="text-xs">Kapasitas</Label><Input value={item.kapasitas || ""} onChange={(e) => handleFasilitasChange(i, 'kapasitas', e.target.value)} /></div>
                                 </div>
                                 <div className="space-y-1"><Label className="text-xs">Deskripsi</Label><Textarea value={item.deskripsi || ""} onChange={(e) => handleFasilitasChange(i, 'deskripsi', e.target.value)} rows={2}/></div>
-                                <div className="space-y-1"><Label className="text-xs">Icon (String)</Label><Input value={item.icon || ""} onChange={(e) => handleFasilitasChange(i, 'icon', e.target.value)} /></div>
                                 <Button size="icon" variant="ghost" className="text-red-500 absolute top-0 right-2 hover:bg-red-50" onClick={() => removeFasilitas(i)}><Trash2 className="h-4 w-4"/></Button>
                             </div>
                         ))}
-                         <Button variant="outline" className="h-full min-h-[200px] border-dashed" onClick={addFasilitas}><Plus className="h-4 w-4 mr-2"/> Tambah</Button>
+                         <Button variant="outline" className="h-full min-h-[200px] border-dashed" onClick={addFasilitas}><Plus className="h-4 w-4 mr-2"/> Tambah Fasilitas</Button>
                     </div>
                 </CardContent>
             </Card>
         </TabsContent>
 
+        {/* --- PROGRAM (NO ICON) --- */}
         <TabsContent value="program" className="space-y-4">
              {(data.program || []).map((cat, catIdx) => (
                  <Card key={catIdx} className="border-l-4 border-l-emerald-500">
@@ -463,17 +456,11 @@ export default function AdminProfilePage() {
                     <CardContent>
                         <div className="space-y-3 pl-4 border-l">
                             {(cat.programs || []).map((prog: any, progIdx) => (
-                                <div key={progIdx} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center border-b pb-3 mb-3 last:border-0">
-                                    <div className="space-y-1"><Label className="text-xs">Nama</Label><Input value={prog.nama || ""} onChange={(e) => handleProgramItemChange(catIdx, progIdx, 'nama', e.target.value)} /></div>
-                                    <div className="space-y-1"><Label className="text-xs">Jadwal</Label><Input value={prog.jadwal || ""} onChange={(e) => handleProgramItemChange(catIdx, progIdx, 'jadwal', e.target.value)} /></div>
-                                    <div className="space-y-1"><Label className="text-xs">Peserta</Label><Input value={prog.peserta || ""} onChange={(e) => handleProgramItemChange(catIdx, progIdx, 'peserta', e.target.value)} /></div>
-                                    <div className="space-y-1 relative">
-                                        <Label className="text-xs">Icon</Label>
-                                        <div className="flex gap-2">
-                                            <Input value={prog.icon || ""} onChange={(e) => handleProgramItemChange(catIdx, progIdx, 'icon', e.target.value)} />
-                                            <Button size="icon" variant="ghost" className="text-red-500 hover:bg-red-50" onClick={() => removeProgramItem(catIdx, progIdx)}><Trash2 className="h-4 w-4"/></Button>
-                                        </div>
-                                    </div>
+                                <div key={progIdx} className="grid grid-cols-12 gap-3 items-end border-b pb-3 mb-3 last:border-0 relative">
+                                    <div className="col-span-12 md:col-span-4 space-y-1"><Label className="text-xs">Nama</Label><Input value={prog.nama || ""} onChange={(e) => handleProgramItemChange(catIdx, progIdx, 'nama', e.target.value)} /></div>
+                                    <div className="col-span-12 md:col-span-4 space-y-1"><Label className="text-xs">Jadwal</Label><Input value={prog.jadwal || ""} onChange={(e) => handleProgramItemChange(catIdx, progIdx, 'jadwal', e.target.value)} /></div>
+                                    <div className="col-span-12 md:col-span-3 space-y-1"><Label className="text-xs">Peserta</Label><Input value={prog.peserta || ""} onChange={(e) => handleProgramItemChange(catIdx, progIdx, 'peserta', e.target.value)} /></div>
+                                    <div className="col-span-12 md:col-span-1 flex justify-end pb-1"><Button size="icon" variant="ghost" className="text-red-500 hover:bg-red-50" onClick={() => removeProgramItem(catIdx, progIdx)}><Trash2 className="h-4 w-4"/></Button></div>
                                 </div>
                             ))}
                             <Button size="sm" variant="secondary" onClick={() => addProgramItem(catIdx)}><Plus className="h-3 w-3 mr-2"/> Tambah Item</Button>
@@ -484,6 +471,7 @@ export default function AdminProfilePage() {
              <Button variant="outline" className="w-full border-dashed py-6" onClick={addProgramCat}><Plus className="h-5 w-5 mr-2"/> Tambah Kategori</Button>
         </TabsContent>
 
+        {/* --- STRUKTUR (NO ICON) --- */}
         <TabsContent value="struktur" className="space-y-4">
              <Card>
                 <CardHeader><CardTitle className="flex items-center gap-2"><Users className="h-5 w-5"/> Struktur</CardTitle></CardHeader>
@@ -495,7 +483,6 @@ export default function AdminProfilePage() {
                                 <div className="space-y-1"><Label className="text-xs">Nama</Label><Input value={item.nama || ""} onChange={(e) => handleStrukturChange(i, 'nama', e.target.value)} /></div>
                                 <div className="space-y-1"><Label className="text-xs">Pendidikan</Label><Input value={item.pendidikan || ""} onChange={(e) => handleStrukturChange(i, 'pendidikan', e.target.value)} /></div>
                                 <div className="space-y-1"><Label className="text-xs">Pengalaman</Label><Input value={item.pengalaman || ""} onChange={(e) => handleStrukturChange(i, 'pengalaman', e.target.value)} /></div>
-                                <div className="space-y-1"><Label className="text-xs">Icon</Label><Input value={item.icon || ""} onChange={(e) => handleStrukturChange(i, 'icon', e.target.value)} /></div>
                                 <Button size="icon" variant="ghost" className="text-red-500 absolute top-0 right-2 hover:bg-red-50" onClick={() => removeStruktur(i)}><Trash2 className="h-4 w-4"/></Button>
                             </div>
                         ))}

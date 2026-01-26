@@ -20,7 +20,8 @@ import {
   Bell,
   Sparkles,
   Beef,
-  Ambulance, // Import icon Ambulance
+  Ambulance,
+  Building2, // Import icon Ambulance
 } from "lucide-react"
 
 import { useAuth } from "@/contexts/auth-context"
@@ -52,7 +53,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 // Menu Items Configuration
 const items = [
-  { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
   { title: "Users", url: "/admin/users", icon: Users },
   { title: "Donations", url: "/admin/donations", icon: DollarSign },
   { title: "Zakat", url: "/admin/zakat", icon: Heart },
@@ -60,7 +60,7 @@ const items = [
   { title: "Ambulance", url: "/admin/ambulance", icon: Ambulance },
   { title: "Events", url: "/admin/events", icon: Calendar },
   { title: "Financial Reports", url: "/admin/financial-reports", icon: FileText },
-  { title: "Profile Masjid", url: "/admin/settings", icon: Settings },
+  { title: "Profile Masjid", url: "/admin/settings", icon: Building2 },
 ]
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
