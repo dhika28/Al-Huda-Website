@@ -521,7 +521,6 @@ export default function FinancialReportsPage() {
                                     <th className="px-6 py-4 text-right">Uang Masuk</th>
                                     <th className="px-6 py-4 text-right">Uang Keluar</th>
                                     <th className="px-6 py-4 text-right bg-slate-100/50">Saldo</th>
-                                    <th className="px-6 py-4 text-center w-[50px]">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 bg-white">
@@ -547,12 +546,7 @@ export default function FinancialReportsPage() {
                                             <td className="px-6 py-4 text-right text-emerald-600 font-medium">{t.type === 'masuk' ? formatCurrency(t.amount) : "-"}</td>
                                             <td className="px-6 py-4 text-right text-red-600 font-medium">{t.type === 'keluar' ? formatCurrency(t.amount) : "-"}</td>
                                             <td className="px-6 py-4 text-right font-bold text-slate-700 bg-slate-50/50">{formatCurrency(t.running_balance)}</td>
-                                            <td className="px-6 py-4 text-center">
-                                                <div className="flex items-center justify-center gap-2">
-                                                    {t.status === 'approved' ? <CheckCircle2 className="h-4 w-4 text-emerald-500" title="Approved" /> : <AlertCircle className="h-4 w-4 text-orange-500" title="Draft" />}
-                                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-blue-600" onClick={() => toast("Fitur Bukti belum tersedia.")}><Eye className="h-4 w-4" /></Button>
-                                                </div>
-                                            </td>
+                                            
                                         </tr>
                                     ))
                                 )}

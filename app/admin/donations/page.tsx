@@ -28,7 +28,8 @@ import {
   Info,
   Edit,
   TrendingDown,
-  Receipt
+  Receipt,
+  BarChart3 // Icon baru untuk Analytics
 } from "lucide-react";
 import { Toaster, toast } from "react-hot-toast";
 
@@ -64,6 +65,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
+// Import Recharts untuk Grafik
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, 
+  AreaChart, Area, PieChart as RePieChart, Pie, Cell 
+} from 'recharts';
 
 /* =======================
    PAGE COMPONENT
@@ -120,6 +127,62 @@ export default function AdminDonationsPage() {
 
     return { totalIn, totalOut, balance };
   }, [donations, allocations]);
+
+  // --- DATA UNTUK GRAFIK (ANALYTICS) ---
+  const chartData = useMemo(() => {
+    // 1. Loop untuk 6 Bulan Terakhir
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      months.push(d);
+    }
+
+    // Format data untuk Area Chart (Tren)
+    const trendData = months.map(date => {
+      const monthKey = date.toLocaleString('default', { month: 'short', year: '2-digit' }); // Cth: "Jan 24"
+      const monthIdx = date.getMonth();
+      const yearIdx = date.getFullYear();
+
+      // Hitung Total Pemasukan Bulan Tersebut (Hanya yang SUKSES)
+      const monthlyIncome = donations
+        .filter(d => {
+          const dDate = new Date(d.created_at || "");
+          return (d.status === 'success' || d.status === 'paid') && 
+                 dDate.getMonth() === monthIdx && 
+                 dDate.getFullYear() === yearIdx;
+        })
+        .reduce((sum, d) => sum + Number(d.amount), 0);
+
+      // Hitung Total Pengeluaran Bulan Tersebut
+      const monthlyExpense = allocations
+        .filter(a => {
+          const aDate = new Date(a.date);
+          return aDate.getMonth() === monthIdx && 
+                 aDate.getFullYear() === yearIdx;
+        })
+        .reduce((sum, a) => sum + Number(a.amount), 0);
+
+      return { name: monthKey, Pemasukan: monthlyIncome, Pengeluaran: monthlyExpense };
+    });
+
+    // Format data untuk Pie Chart (Kategori Pengeluaran)
+    const categoryGroups = allocations.reduce((acc: any, curr) => {
+      const cat = curr.category || "Lainnya";
+      acc[cat] = (acc[cat] || 0) + Number(curr.amount);
+      return acc;
+    }, {});
+
+    const allocationPieData = Object.keys(categoryGroups).map(key => ({
+      name: key,
+      value: categoryGroups[key]
+    })).sort((a, b) => b.value - a.value); // Urutkan dari terbesar
+
+    return { trendData, allocationPieData };
+  }, [donations, allocations]);
+
+  // Colors for Charts
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
   // Helper Formatters
   const formatCurrency = (n: number) =>
@@ -414,7 +477,7 @@ export default function AdminDonationsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-4xl font-bold tracking-tight text-slate-900">Kelola Donasi</h2>
-          <p className="text-sm text-slate-500 mt-1">Pantau arus kas, kelola program, dan alokasi dana umat.</p>
+          <p className="text-sm text-slate-500 mt-1">Pantau arus kas, kelola program, dan alokasi dana.</p>
         </div>
         <div className="flex gap-3">
           <Button onClick={() => setIsManualModalOpen(true)} variant="outline" className="bg-white hover:bg-slate-50 text-slate-700 shadow-sm border-slate-200">
@@ -442,6 +505,7 @@ export default function AdminDonationsPage() {
             <TabsTrigger value="transactions" className="px-0 py-2 text-sm font-medium text-slate-500 data-[state=active]:text-emerald-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-emerald-600 rounded-none transition-all">Riwayat Transaksi</TabsTrigger>
             <TabsTrigger value="allocations" className="px-0 py-2 text-sm font-medium text-slate-500 data-[state=active]:text-emerald-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-emerald-600 rounded-none transition-all">Alokasi Dana</TabsTrigger>
             <TabsTrigger value="programs" className="px-0 py-2 text-sm font-medium text-slate-500 data-[state=active]:text-emerald-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-emerald-600 rounded-none transition-all">Program Donasi</TabsTrigger>
+            <TabsTrigger value="analytics" className="px-0 py-2 text-sm font-medium text-slate-500 data-[state=active]:text-emerald-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-emerald-600 rounded-none transition-all flex items-center gap-2"> Analisa Grafik</TabsTrigger>
             <TabsTrigger value="reports" className="px-0 py-2 text-sm font-medium text-slate-500 data-[state=active]:text-emerald-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-emerald-600 rounded-none transition-all">Laporan</TabsTrigger>
           </TabsList>
         </div>
@@ -541,7 +605,7 @@ export default function AdminDonationsPage() {
           </Card>
         </TabsContent>
 
-        {/* --- TAB: ALLOCATIONS (BARU) --- */}
+        {/* --- TAB: ALLOCATIONS --- */}
         <TabsContent value="allocations" className="mt-4 space-y-6">
             <Card className="border-0 shadow-lg bg-white">
                 <CardHeader className="flex flex-row items-center justify-between">
@@ -650,6 +714,107 @@ export default function AdminDonationsPage() {
               );
             })}
           </div>
+        </TabsContent>
+
+        {/* --- TAB: ANALYTICS (GRAFIK) --- */}
+        <TabsContent value="analytics" className="mt-4 space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                {/* GRAFIK 1: Tren Arus Kas */}
+                <Card className="col-span-1 lg:col-span-2 shadow-sm border-slate-200">
+                    <CardHeader>
+                        <CardTitle>Arus Kas Bulanan</CardTitle>
+                        <CardDescription>Perbandingan Pemasukan dan Pengeluaran 6 Bulan Terakhir</CardDescription>
+                    </CardHeader>
+                    <CardContent className="h-[350px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={chartData.trendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                <defs>
+                                    <linearGradient id="colorIn" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                    </linearGradient>
+                                    <linearGradient id="colorOut" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8}/>
+                                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                                    </linearGradient>
+                                </defs>
+                                <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
+                                <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `Rp${val/1000}k`} />
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <RechartsTooltip 
+                                    formatter={(value: number) => formatCurrency(value)}
+                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                />
+                                <Legend wrapperStyle={{paddingTop: '20px'}}/>
+                                <Area type="monotone" dataKey="Pemasukan" stroke="#10b981" fillOpacity={1} fill="url(#colorIn)" strokeWidth={2} />
+                                <Area type="monotone" dataKey="Pengeluaran" stroke="#ef4444" fillOpacity={1} fill="url(#colorOut)" strokeWidth={2} />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </CardContent>
+                </Card>
+
+                {/* GRAFIK 2: Komposisi Pengeluaran */}
+                <Card className="shadow-sm border-slate-200">
+                    <CardHeader>
+                        <CardTitle>Distribusi Penyaluran Dana</CardTitle>
+                        <CardDescription>Berdasarkan Kategori Alokasi</CardDescription>
+                    </CardHeader>
+                    <CardContent className="h-[300px]">
+                        {chartData.allocationPieData.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <RePieChart>
+                                    <Pie
+                                        data={chartData.allocationPieData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={60}
+                                        outerRadius={80}
+                                        paddingAngle={5}
+                                        dataKey="value"
+                                    >
+                                        {chartData.allocationPieData.map((entry: any, index: number) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <RechartsTooltip formatter={(value: number) => formatCurrency(value)} />
+                                    <Legend layout="vertical" verticalAlign="middle" align="right" />
+                                </RePieChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="h-full flex items-center justify-center text-slate-400 text-sm">Belum ada data pengeluaran</div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* INFO SUMMARY */}
+                <Card className="shadow-sm border-slate-200 bg-slate-50/50">
+                    <CardHeader>
+                        <CardTitle>Ringkasan Keuangan</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="flex justify-between items-center p-3 bg-white rounded border">
+                            <span className="text-sm text-slate-500">Rata-rata Pemasukan (Bulan ini)</span>
+                            <span className="font-bold text-slate-900">
+                                {formatCurrency(chartData.trendData[chartData.trendData.length -1]?.Pemasukan || 0)}
+                            </span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-white rounded border">
+                            <span className="text-sm text-slate-500">Rata-rata Pengeluaran (Bulan ini)</span>
+                            <span className="font-bold text-slate-900">
+                                {formatCurrency(chartData.trendData[chartData.trendData.length -1]?.Pengeluaran || 0)}
+                            </span>
+                        </div>
+                        <div className="p-3 bg-blue-50 rounded border border-blue-100 mt-4">
+                            <p className="text-xs text-blue-700 leading-relaxed">
+                                <Info className="inline h-3 w-3 mr-1 mb-0.5"/>
+                                Grafik ini menampilkan data real-time berdasarkan transaksi yang berstatus "Success" atau "Paid". Data pending tidak dihitung dalam analisa ini.
+                            </p>
+                        </div>
+                    </CardContent>
+                </Card>
+
+            </div>
         </TabsContent>
 
         {/* --- TAB: REPORTS --- */}

@@ -73,6 +73,7 @@ export interface AmbulanceDriver {
 // --- RESPONSE WRAPPERS ---
 
 export interface AmbulanceResponse {
+  filter(arg0: (a: any) => boolean): unknown
   data: AmbulanceRequest[]
 }
 

@@ -8,20 +8,16 @@ import {
   Users,
   DollarSign,
   Heart,
-  Truck,
   Calendar,
   FileText,
-  Settings,
   LogOut,
   Home, 
   ChevronsUpDown,
   BadgeCheck,
-  CreditCard,
   Bell,
-  Sparkles,
   Beef,
   Ambulance,
-  Building2, // Import icon Ambulance
+  Building2,
 } from "lucide-react"
 
 import { useAuth } from "@/contexts/auth-context"
@@ -36,9 +32,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuBadge,
   SidebarRail,
-  useSidebar,
 } from "@/components/ui/sidebar"
 import {
   DropdownMenu,
@@ -51,16 +45,48 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
-// Menu Items Configuration
-const items = [
-  { title: "Users", url: "/admin/users", icon: Users },
-  { title: "Donations", url: "/admin/donations", icon: DollarSign },
-  { title: "Zakat", url: "/admin/zakat", icon: Heart },
-  { title: "Qurban", url: "/admin/qurban", icon: Beef },
-  { title: "Ambulance", url: "/admin/ambulance", icon: Ambulance },
-  { title: "Events", url: "/admin/events", icon: Calendar },
-  { title: "Financial Reports", url: "/admin/financial-reports", icon: FileText },
-  { title: "Profile Masjid", url: "/admin/settings", icon: Building2 },
+// --- NAV ITEMS CONFIGURATION ---
+export const NAV_ITEMS = [
+  { 
+    title: "Data Jamaah", 
+    url: "/admin/users", 
+    icon: Users 
+  },
+  { 
+    title: "Donasi Masuk", 
+    url: "/admin/donations", 
+    icon: DollarSign 
+  },
+  { 
+    title: "Data Zakat", 
+    url: "/admin/zakat", 
+    icon: Heart 
+  },
+  { 
+    title: "Data Qurban", 
+    url: "/admin/qurban", 
+    icon: Beef 
+  },
+  { 
+    title: "Layanan Ambulance", 
+    url: "/admin/ambulance", 
+    icon: Ambulance 
+  },
+  { 
+    title: "Manajemen Kegiatan", 
+    url: "/admin/events",      
+    icon: Calendar 
+  },
+  { 
+    title: "Laporan Keuangan", 
+    url: "/admin/financial-reports", 
+    icon: FileText 
+  },
+  { 
+    title: "Profil Masjid", 
+    url: "/admin/settings", 
+    icon: Building2 
+  },
 ]
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -99,8 +125,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarGroupLabel>Menu Utama</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => {
-                const isActive = pathname === item.url || pathname.startsWith(item.url + "/")
+              {NAV_ITEMS.map((item) => {
+                // Jangan render item dashboard di list menu samping jika sudah ada di header logo (opsional)
+                // Tapi dibiarkan agar konsisten dengan layout breadcrumb
+                const isActive = item.url === "/admin" 
+                  ? pathname === "/admin"
+                  : pathname === item.url || pathname.startsWith(item.url + "/")
                 
                 return (
                   <SidebarMenuItem key={item.title}>
@@ -129,7 +159,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
                   <Avatar className="h-8 w-8 rounded-lg">
-                    <AvatarImage src="" alt={user?.name} />
+                    <AvatarImage src={user?.avatar || ""} alt={user?.name} />
                     <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
@@ -148,6 +178,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <DropdownMenuLabel className="p-0 font-normal">
                   <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                     <Avatar className="h-8 w-8 rounded-lg">
+                      <AvatarImage src={user?.avatar || ""} alt={user?.name} />
                       <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-left text-sm leading-tight">
@@ -157,17 +188,25 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                
+                {/* --- MENU GROUP AKUN --- */}
                 <DropdownMenuGroup>
-                  <DropdownMenuItem>
-                    <BadgeCheck className="mr-2 h-4 w-4" />
-                    Account
+                  <DropdownMenuItem asChild>
+                    {/* Link ke halaman Profile */}
+                    <Link href="/admin/profile" className="cursor-pointer">
+                      <BadgeCheck className="mr-2 h-4 w-4" />
+                      Account
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem>
                     <Bell className="mr-2 h-4 w-4" />
                     Notifications
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
+                
                 <DropdownMenuSeparator />
+                
+                {/* --- LOGOUT --- */}
                 <DropdownMenuItem onClick={logout} className="text-red-600 focus:text-red-600 cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />
                   Log out
