@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Loader2 } from "lucide-react"
+import { ArrowLeft, Loader2 } from "lucide-react"
 
 // Import Type & API
 import { MosqueProfile } from "@/app/types/masjid"
@@ -18,6 +18,7 @@ import {
   History, Crown, Handshake, GraduationCap, Soup, Sun, Moon, 
   CheckCircle2, Info
 } from "lucide-react"
+import Link from "next/link"
 
 // --- 1. ICON MAP (String -> Component) ---
 // Ini jembatan antara Database (Text) ke Frontend (Component)
@@ -92,7 +93,24 @@ export default function ProfilMasjidPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 font-sans">
+      <header className="bg-white/95 backdrop-blur border-b shadow-sm sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center space-x-4">
+              <Link href="/">
+                <Button variant="ghost" size="icon">
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+              </Link>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Profile Masjid</h1>
+                <p className="text-sm text-gray-600">Lihat informasi lebih lanjut tentang masjid ini.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
       {/* Hero Section */}
       <section className="relative h-screen bg-gradient-to-br from-black/80 to-black/80 overflow-hidden">
         <div className="absolute inset-0 bg-black/40" />
@@ -104,7 +122,7 @@ export default function ProfilMasjidPage() {
           style={{ backgroundImage: `url('${profile.bg_image_url || "/bg-alhuda3.jpeg"}')` }}
         />
 
-        <div className="relative container mx-auto px-6 h-full flex items-center">
+        <div className="relative container mx-auto px-6 flex items-center mt-32 md:mt-30">
           <div className="max-w-5xl text-white">
             <h1 className="text-6xl md:text-8xl font-extrabold mb-6 leading-tight drop-shadow-lg">
               {profile.nama_masjid}

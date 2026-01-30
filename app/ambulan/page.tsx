@@ -119,7 +119,7 @@ export default function AmbulanPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 to-blue-50 font-sans">
       {/* HEADER */}
       <header className="bg-white border-b">
         <div className="container mx-auto px-4 py-4 flex items-center gap-4">

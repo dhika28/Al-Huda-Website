@@ -97,7 +97,7 @@ export default function DonasiPageClient() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white font-sans">
       {openPopup && (
         <DonationPopup program={selectedProgram} onClose={() => setOpenPopup(false)} />
       )}

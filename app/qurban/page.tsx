@@ -112,7 +112,7 @@ export default function QurbanPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white font-sans">
       {/* HEADER */}
       <header className="bg-white/90 backdrop-blur border-b shadow-sm sticky top-0 z-20 w-full">
         <div className="px-4 py-4 w-full">

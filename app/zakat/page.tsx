@@ -138,7 +138,7 @@ export default function ZakatPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50/40 to-blue-50/40">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50/40 to-blue-50/40 font-sans">
       {/* HEADER */}
       <header className="bg-white/95 backdrop-blur border-b shadow-sm sticky top-0 z-30">
         <div className="container mx-auto px-4 py-4">

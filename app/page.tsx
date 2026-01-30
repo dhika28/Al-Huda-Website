@@ -208,14 +208,6 @@ export default function HomePage() {
                     {user?.name ?? "Profil"}
                   </Button>
                 </Link>
-                <Button
-                  variant="outline"
-                  onClick={handleLogout}
-                  disabled={loggingOut}
-                  className="text-gray-600 hover:text-gray-800 flex items-center gap-2"
-                >
-                  Keluar
-                </Button>
               </div>
             
             ) : (
