@@ -21,6 +21,7 @@ export interface QurbanRegistrationInput {
 }
 
 export interface QurbanRegistrationResponse {
+  token: any;
   message: string;
   registration_id: number;
   midtrans_token?: string;

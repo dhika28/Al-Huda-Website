@@ -26,6 +26,13 @@ import {
   deleteAllocation, // <-- Import API Baru
 } from "@/lib/api/donation";
 
+// Tambahkan ini agar TypeScript tidak error saat akses window.snap
+declare global {
+  interface Window {
+    snap: any;
+  }
+}
+
 /* =======================
    TYPE DEFINITION
 ======================= */
@@ -140,23 +147,52 @@ export const DonationProvider = ({ children }: { children: ReactNode }) => {
   /* =======================
      PUBLIC ACTIONS
   ======================= */
-  const submitDonation = async (donation: Donation) => {
-    try {
-      setIsLoading(true);
-      const res = await createDonation(donation);
+  /* =======================
+   PUBLIC ACTIONS
+======================= */
+const submitDonation = async (donation: Donation) => {
+  try {
+    setIsLoading(true);
+    
+    // 1. Kirim Data Donasi ke Backend untuk dapatkan SNAP TOKEN
+    const res = await createDonation(donation);
 
-      if (res?.redirect_url) {
-        window.location.href = res.redirect_url;
-      } else {
-        throw new Error("Gagal memproses pembayaran (No Redirect URL).");
-      }
-    } catch (err) {
-      console.error("❌ Failed to submit donation:", err);
-      throw err; 
-    } finally {
-      setIsLoading(false);
+    // 2. Cek apakah Token ada
+    if (!res?.token) {
+      throw new Error("Gagal mendapatkan token pembayaran dari server.");
     }
-  };
+
+    // 3. Munculkan Popup Midtrans
+    if (window.snap) {
+      window.snap.pay(res.token, {
+        // SUKSES BAYAR -> REDIRECT KE HALAMAN STATUS
+        onSuccess: function(result: any) {
+          window.location.href = `/payment/status?order_id=${result.order_id}&transaction_status=${result.transaction_status}&status_code=${result.status_code}`;
+        },
+        // PENDING (ATM/INDOMARET) -> REDIRECT KE HALAMAN STATUS
+        onPending: function(result: any) {
+          window.location.href = `/payment/status?order_id=${result.order_id}&transaction_status=pending&status_code=${result.status_code}`;
+        },
+        // GAGAL -> REDIRECT KE HALAMAN STATUS
+        onError: function(result: any) {
+          window.location.href = `/payment/status?order_id=${result.order_id}&transaction_status=error&status_code=${result.status_code}`;
+        },
+        // TUTUP POPUP -> ALERT SAJA
+        onClose: function() {
+          alert('Anda menutup popup tanpa menyelesaikan pembayaran');
+        }
+      });
+    } else {
+      alert("Sistem pembayaran belum siap. Silakan refresh halaman.");
+    }
+
+  } catch (err: any) {
+    console.error("❌ Failed to submit donation:", err);
+    alert(err.message || "Terjadi kesalahan saat memproses donasi.");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   /* =======================
      ADMIN ACTIONS (CRUD PROGRAM)

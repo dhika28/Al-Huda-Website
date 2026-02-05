@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, Award } from "lucide-react";
 
@@ -17,18 +17,29 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/components/ui/use-toast";
 
 import { useQurban } from "@/contexts/qurban-context";
 import { QurbanPackage, QurbanRegistrationInput } from "@/app/types/qurban";
+import { createQurbanRegistration } from "@/lib/api/qurban"; 
 import { GiCow, GiGoat } from "react-icons/gi";
 
+// 1. Definisi Window Snap
+declare global {
+  interface Window {
+    snap: any;
+  }
+}
 
 export default function QurbanPage() {
-  // SINGLE CONTEXT CALL
-  const { packages, loading: loadingPackages, registerQurban, user } = useQurban();
+  const { packages, loading: loadingPackages } = useQurban();
+  const { toast } = useToast();
 
   const [selectedPackage, setSelectedPackage] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  
+  // State User ID
+  const [currentUserId, setCurrentUserId] = useState<number | undefined>(undefined);
 
   const [form, setForm] = useState({
     fullName: "",
@@ -38,21 +49,58 @@ export default function QurbanPage() {
     notes: "",
   });
 
-  const getQurbanIcon = (name: string) => {
-    const lower = name.toLowerCase();
+  const [extraNames, setExtraNames] = useState<string[]>(Array(6).fill(""));
 
-    if (lower.includes("sapi")) {
-      return <GiCow size={22} />;
-    }
+  // 🔥 2. FETCH USER (HANYA AMBIL ID, JANGAN ISI FORM)
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const res = await fetch("http://localhost:8080/me", { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          const userObj = data.user || data; 
+          
+          if (userObj && userObj.id) {
+            console.log("✅ User terdeteksi:", userObj.id);
+            setCurrentUserId(userObj.id);
+            
+            // ❌ BAGIAN INI SAYA HAPUS/KOMENTAR AGAR FORM TETAP KOSONG ❌
+            // setForm(prev => ({
+            //   ...prev,
+            //   fullName: userObj.name || userObj.full_name || prev.fullName,
+            //   email: userObj.email || prev.email,
+            //   phone: userObj.phone || prev.phone,
+            //   address: userObj.address || prev.address
+            // }));
+          }
+        }
+      } catch (err) {
+        console.warn("User belum login (Guest Mode)");
+      }
+    };
+    
+    fetchUser();
+  }, []);
 
-    if (lower.includes("kambing")) {
-      return <GiGoat size={22} />;
-    }
-
-    return null;
+  // Helper Reset Form
+  const resetForm = () => {
+    setForm({
+        fullName: "",
+        phone: "",
+        email: "",
+        address: "",
+        notes: "",
+    });
+    setExtraNames(Array(6).fill(""));
+    setSelectedPackage(null);
   };
 
-  const [extraNames, setExtraNames] = useState<string[]>(Array(6).fill(""));
+  const getQurbanIcon = (name: string) => {
+    const lower = name.toLowerCase();
+    if (lower.includes("sapi")) return <GiCow size={22} />;
+    if (lower.includes("kambing")) return <GiGoat size={22} />;
+    return null;
+  };
 
   const handleForm = (key: string, value: any) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -65,49 +113,70 @@ export default function QurbanPage() {
   const participantTotal = pkg?.participants ?? 1;
   const isSapi = participantTotal === 7;
 
+  // 3. Logic Submit
   const submitForm = async () => {
-  if (!pkg) return alert("Pilih paket terlebih dahulu.");
+    if (!pkg) return alert("Pilih paket terlebih dahulu.");
+    if (!form.fullName || !form.email || !form.phone) return alert("Lengkapi data diri.");
 
-  // user bisa null → ini aman
-  const userId = user?.id || null;
-
-  const payload: QurbanRegistrationInput = {
-    user_id: userId,
-    package_id: pkg.id,
-    name: form.fullName,
-    phone: form.phone,
-    email: form.email,
-    address: form.address,
-    notes: form.notes,
-    participant_count: participantTotal,
-    extra_names: isSapi ? extraNames : [],
-  };
-
-  console.log("📤 Payload:", payload);
-
-  try {
-    setLoading(true);
-
-    const res = await registerQurban(payload);
-
-    console.log("📥 Response:", res);
-
-    if (!res) {
-      alert("Gagal mendaftar.");
-      return;
+    if (!currentUserId) {
+       const proceed = confirm("Anda belum login. Transaksi ini tidak akan tercatat di riwayat akun Anda. Lanjutkan?");
+       if (!proceed) return;
     }
 
-    if (res.redirect_url) {
-      window.location.href = res.redirect_url;
-      return;
+    if (typeof window.snap === "undefined") {
+        alert("Sistem pembayaran belum siap. Silakan refresh halaman.");
+        return;
     }
 
-    alert("Pendaftaran berhasil, tetapi link pembayaran tidak ditemukan.");
-    } catch (err) {
-      console.error("❌ Error submit:", err);
-      alert("Terjadi kesalahan.");
+    const payload: QurbanRegistrationInput = {
+        user_id: currentUserId || 0, 
+        package_id: pkg.id,
+        name: form.fullName,
+        phone: form.phone,
+        email: form.email,
+        address: form.address,
+        notes: form.notes,
+        participant_count: participantTotal,
+        extra_names: isSapi ? extraNames : [],
+    };
+
+    console.log("📤 Mengirim Payload Qurban:", payload);
+
+    try {
+        setLoading(true);
+
+        const res = await createQurbanRegistration(payload);
+        console.log("📥 Response Backend:", res);
+
+        if (!res?.token) {
+            throw new Error("Gagal mendapatkan token pembayaran.");
+        }
+
+        window.snap.pay(res.token, {
+            onSuccess: function(result: any) {
+                console.log("✅ Sukses:", result);
+                resetForm(); 
+                window.location.assign(`/payment/status?order_id=${result.order_id}&transaction_status=${result.transaction_status}&status_code=${result.status_code}`);
+            },
+            onPending: function(result: any) {
+                console.log("⏳ Pending:", result);
+                resetForm(); 
+                window.location.assign(`/payment/status?order_id=${result.order_id}&transaction_status=${result.transaction_status}&status_code=${result.status_code}`);
+            },
+            onError: function(result: any) {
+                console.log("❌ Error:", result);
+                window.location.assign(`/payment/status?order_id=${result.order_id}&transaction_status=error&status_code=${result.status_code}`);
+            },
+            onClose: function() {
+                alert("Anda menutup popup pembayaran.");
+            }
+        });
+
+    } catch (err: any) {
+        console.error("❌ Error submit:", err);
+        alert(err.message || "Terjadi kesalahan server.");
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
   };
 
@@ -146,9 +215,7 @@ export default function QurbanPage() {
             <TabsTrigger value="form">Form Pendaftaran</TabsTrigger>
           </TabsList>
 
-          {/* ======================= */}
           {/* TAB PAKET */}
-          {/* ======================= */}
           <TabsContent value="packages">
             {loadingPackages ? (
               <p className="text-center py-10 text-gray-600">Memuat paket...</p>
@@ -208,9 +275,7 @@ export default function QurbanPage() {
             )}
           </TabsContent>
 
-          {/* ======================= */}
           {/* TAB FORM */}
-          {/* ======================= */}
           <TabsContent value="form" className="w-full px-2 md:px-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* FORM */}
@@ -231,6 +296,7 @@ export default function QurbanPage() {
                       <div>
                         <Label>Nama Lengkap</Label>
                         <Input
+                          autoComplete="off" 
                           value={form.fullName}
                           onChange={(e) => handleForm("fullName", e.target.value)}
                         />
@@ -238,6 +304,7 @@ export default function QurbanPage() {
                       <div>
                         <Label>Email</Label>
                         <Input
+                          autoComplete="off"
                           value={form.email}
                           onChange={(e) => handleForm("email", e.target.value)}
                         />
@@ -249,6 +316,7 @@ export default function QurbanPage() {
                       <div>
                         <Label>No. Telepon</Label>
                         <Input
+                          autoComplete="off"
                           value={form.phone}
                           onChange={(e) => handleForm("phone", e.target.value)}
                         />
@@ -281,6 +349,7 @@ export default function QurbanPage() {
                     <div>
                       <Label>Alamat</Label>
                       <Textarea
+                        autoComplete="off"
                         value={form.address}
                         onChange={(e) => handleForm("address", e.target.value)}
                         rows={3}

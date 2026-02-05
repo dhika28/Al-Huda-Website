@@ -1,5 +1,5 @@
-
 export interface CreateZakatPaymentPayload {
+  user_id?: number | null // <-- TAMBAHAN: Opsional (bisa number atau undefined)
   name: string
   email: string
   phone: string
@@ -13,7 +13,7 @@ export interface CreateZakatPaymentPayload {
 
 export interface ZakatPayload extends CreateZakatPaymentPayload {
   id: number
-  user_id: number | null
+  user_id: number | null // Di sini override jadi nullable
   created_at: string
 }
 
@@ -29,4 +29,5 @@ export interface ZakatPayment {
   email: string;
   message: string | null;
   created_at: string;
+  status?: string; // Tambahkan status juga biar lengkap (pending/success)
 }

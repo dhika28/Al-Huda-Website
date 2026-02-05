@@ -545,7 +545,7 @@ export default function AdminEventsPage() {
   const doneEvents = events.filter(e => e.status === 'selesai').length
 
   return (
-    <div className="w-full min-h-screen bg-slate-50/50 p-6 space-y-6 print:bg-white print:p-0">
+    <div className="w-full min-h-screen bg-slate-50/50 p-6 space-y-6 print:bg-white print:p-0 font-sans">
       <Toaster position="top-center" />
 
       {/* HEADER */}
@@ -727,7 +727,7 @@ export default function AdminEventsPage() {
 
       {/* --- FORM MODAL (CREATE/EDIT) --- */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto font-sans">
           <DialogHeader>
             <DialogTitle>{isEditMode ? "Edit Kegiatan" : "Buat Kegiatan Baru"}</DialogTitle>
             <DialogDescription>Lengkapi detail kegiatan untuk dipublikasikan. Status awal otomatis "Terbuka".</DialogDescription>

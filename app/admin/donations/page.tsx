@@ -470,7 +470,7 @@ export default function AdminDonationsPage() {
   const openEditModal = (program: Program) => { setEditingProgram(program); setIsModalOpen(true); };
 
   return (
-    <div className="w-full min-h-screen bg-slate-50/50 p-6 space-y-6 print:bg-white print:p-0">
+    <div className="w-full min-h-screen bg-slate-50/50 p-6 space-y-6 print:bg-white print:p-0 font-sans">
       <Toaster position="top-center" reverseOrder={false} />
 
       {/* TOP SECTION */}

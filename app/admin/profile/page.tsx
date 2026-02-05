@@ -223,7 +223,7 @@ export default function AdminProfilePage() {
   }
 
   return (
-    <div className="w-full min-h-screen bg-slate-50/50 p-6 space-y-6">
+    <div className="w-full min-h-screen bg-slate-50/50 p-6 space-y-6 font-sans">
       <Toaster position="top-center" />
       <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
 

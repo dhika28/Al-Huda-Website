@@ -3,145 +3,190 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { User, Phone, Mail, Lock, Eye, EyeOff, ArrowLeft } from "lucide-react"
+import { User, Phone, Mail, Lock, Eye, EyeOff, ArrowLeft, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useAuth } from "@/contexts/auth-context"
+// Import Library Toast
+import { toast, Toaster } from "react-hot-toast"
 
 export default function AuthPage() {
   // REGISTER state
   const [registerFullName, setRegisterFullName] = useState("")
   const [registerPhoneNumber, setRegisterPhoneNumber] = useState("")
   const [registerEmail, setRegisterEmail] = useState("")
+  
   const [registerPassword, setRegisterPassword] = useState("")
   const [showRegisterPassword, setShowRegisterPassword] = useState(false)
-  const [registerError, setRegisterError] = useState("")
+  
+  const [registerConfirmPassword, setRegisterConfirmPassword] = useState("")
+  const [showRegisterConfirmPassword, setShowRegisterConfirmPassword] = useState(false)
 
   // LOGIN state
   const [loginEmail, setLoginEmail] = useState("")
   const [loginPassword, setLoginPassword] = useState("")
   const [showLoginPassword, setShowLoginPassword] = useState(false)
-  const [loginError, setLoginError] = useState("")
-
-  // Toast
-  const [toastMessage, setToastMessage] = useState("")
-  const [toastType, setToastType] = useState<"success" | "error">("success")
 
   const router = useRouter()
   const { login, register, isLoading } = useAuth()
 
-  const showToast = (message: string, type: "success" | "error" = "success") => {
-    setToastMessage(message)
-    setToastType(type)
-    setTimeout(() => setToastMessage(""), 3000)
+  // Helper Validasi Email
+  const isValidEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
   }
 
-  // LOGIN handler
-// LOGIN handler
+  // --- LOGIN HANDLER ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoginError("")
-
+    
+    // 1. Validasi Input Kosong
     if (!loginEmail || !loginPassword) {
-      setLoginError("Email dan password harus diisi")
+      toast.error("Email dan password wajib diisi", { id: "login-empty" })
       return
     }
 
-    // Pastikan fungsi login di useAuth mengembalikan object result (bukan cuma true/false)
-    const result = await login(loginEmail, loginPassword)
+    // 2. Validasi Format Email
+    if (!isValidEmail(loginEmail)) {
+      toast.error("Format email tidak valid", { id: "login-email-invalid" })
+      return
+    }
 
-    console.log("👉 HASIL LOGIN:", result) 
-    console.log("👉 ROLE:", result.role)
-    
-    // Cek jika result sukses
-    if (result.success) {
-      showToast("Login berhasil!", "success")
-      
-      // --- LOGIKA REDIRECT BARU DISINI ---
-      if (result.role === "admin") {
-        router.push("/admin") // Ganti sesuai route admin kamu
+    const loadingToast = toast.loading("Sedang masuk...")
+
+    try {
+      const result = await login(loginEmail, loginPassword)
+
+      toast.dismiss(loadingToast)
+
+      if (result.success) {
+        toast.success("Login berhasil! Mengalihkan...", { duration: 3000 })
+        
+        // Redirect logic
+        setTimeout(() => {
+          if (result.role === "admin") {
+            router.push("/admin")
+          } else {
+            router.push("/")
+          }
+        }, 1000)
       } else {
-        router.push("/") // Ganti sesuai route user kamu (atau "/")
+        // Handle Error dari Backend (Password salah / User not found)
+        toast.error(result.error || "Email atau password salah", { duration: 4000 })
       }
-      // -----------------------------------
-      
-    } else {
-      // Tampilkan error dari backend jika ada
-      setLoginError(result.error || "Email atau password salah")
-      showToast("Login gagal!", "error")
+    } catch (error) {
+      toast.dismiss(loadingToast)
+      toast.error("Terjadi kesalahan koneksi")
     }
   }
 
-// REGISTER handler
-const handleRegister = async (e: React.FormEvent) => {
-  e.preventDefault()
-  setRegisterError("")
+  // --- REGISTER HANDLER ---
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault()
 
-  if (!registerFullName || !registerEmail || !registerPassword) {
-    setRegisterError("Nama, email, dan password harus diisi")
-    return
+    // 1. Validasi Kolom Kosong
+    if (!registerFullName || !registerEmail || !registerPassword || !registerConfirmPassword) {
+      toast.error("Mohon lengkapi semua data pendaftaran")
+      return
+    }
+
+    // 2. Validasi Format Email
+    if (!isValidEmail(registerEmail)) {
+      toast.error("Format email tidak valid (contoh: user@gmail.com)")
+      return
+    }
+
+    // 3. Validasi Panjang Password
+    if (registerPassword.length < 6) {
+      toast.error("Password terlalu pendek (Minimal 6 karakter)")
+      return
+    }
+
+    // 4. Validasi Kecocokan Password
+    if (registerPassword !== registerConfirmPassword) {
+      toast.error("Konfirmasi password tidak cocok")
+      return
+    }
+
+    const loadingToast = toast.loading("Mendaftarkan akun...")
+
+    try {
+      const success = await register({
+        full_name: registerFullName,
+        phone: registerPhoneNumber,
+        email: registerEmail,
+        password: registerPassword,
+      })
+
+      toast.dismiss(loadingToast)
+
+      if (success) {
+        toast.success("Registrasi berhasil! Silakan login.", { duration: 5000 })
+        
+        // Reset Form
+        setRegisterFullName("")
+        setRegisterPhoneNumber("")
+        setRegisterEmail("")
+        setRegisterPassword("")
+        setRegisterConfirmPassword("")
+        
+        // Reload halaman untuk pindah ke state login yang bersih
+        setTimeout(() => {
+            window.location.reload()
+        }, 1500)
+      } else {
+        // Asumsi error paling umum jika validasi frontend lolos adalah duplikat email
+        toast.error("Registrasi gagal. Email mungkin sudah terdaftar.", { duration: 4000 })
+      }
+    } catch (error) {
+      toast.dismiss(loadingToast)
+      toast.error("Terjadi kesalahan server saat mendaftar.")
+    }
   }
-
-  const success = await register({
-    full_name: registerFullName,
-    phone: registerPhoneNumber,
-    email: registerEmail,
-    password: registerPassword,
-  })
-
-  if (success) {
-    showToast("Register berhasil! Silakan login.", "success")
-    // reset form register
-    setRegisterFullName("")
-    setRegisterPhoneNumber("")
-    setRegisterEmail("")
-    setRegisterPassword("")
-    setShowRegisterPassword(false)
-    router.push("/login")
-  } else {
-    setRegisterError("Gagal register")
-    showToast("Register gagal!", "error")
-  }
-}
-
 
   const handleGoogleLogin = () => {
     window.location.href = "http://localhost:8080/login"
   }
 
   return (
-    <div className="font-sans min-h-screen bg-white flex items-center justify-center p-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 w-full max-w-6xl bg-white rounded-lg shadow-lg overflow-hidden relative">
+    <div className="font-sans min-h-screen bg-gray-50 flex items-center justify-center p-6">
+      {/* Toast Container Config */}
+      <Toaster position="top-center" reverseOrder={false} />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 w-full max-w-6xl bg-white rounded-2xl shadow-xl overflow-hidden relative">
+        
         {/* LEFT - REGISTER */}
-        <div className="p-8 border-b md:border-b-0 md:border-r relative z-10">
-          <Link href="/" className="inline-flex items-center mb-6 text-gray-600 hover:text-gray-800">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Kembali
+        <div className="p-8 md:p-12 border-b md:border-b-0 md:border-r border-gray-100 relative z-10 bg-white">
+          <Link href="/" className="inline-flex items-center mb-8 text-black-300 hover:text-emerald-800 font-medium transition-colors">
+            <ArrowLeft className="mr-2 h-4 w-4" /> Kembali ke Beranda
           </Link>
-          <h2 className="text-3xl font-extrabold text-gray-900 mb-10">Sign Up</h2>
-          <form onSubmit={handleRegister} className="space-y-4">
+          
+          <div className="mb-8">
+            <h2 className="text-3xl font-extrabold text-gray-900">Buat Akun Baru</h2>
+            <p className="text-gray-500 mt-2 text-sm">Bergabunglah dengan jamaah Masjid Al Huda</p>
+          </div>
+
+          <form onSubmit={handleRegister} className="space-y-5">
             <div>
-              <Label>Nama Lengkap</Label>
-              <div className="relative">
+              <Label className="text-gray-700">Nama Lengkap <span className="text-red-500">*</span></Label>
+              <div className="relative mt-1.5">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
-                  placeholder="Nama Lengkap"
-                  className="pl-9"
+                  placeholder="Contoh: Ahmad Fulan"
+                  className="pl-10 h-11 bg-gray-50 border-gray-200 focus:bg-white focus:border-emerald-500 transition-all"
                   value={registerFullName}
                   onChange={(e) => setRegisterFullName(e.target.value)}
-                  required
                 />
               </div>
             </div>
 
             <div>
-              <Label>Nomor HP</Label>
-              <div className="relative">
+              <Label className="text-gray-700">Nomor HP <span className="text-red-500">*</span></Label>
+              <div className="relative mt-1.5">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
-                  placeholder="Nomor HP"
-                  className="pl-9"
+                  placeholder="Contoh: 08123456789"
+                  className="pl-10 h-11 bg-gray-50 border-gray-200 focus:bg-white focus:border-emerald-500 transition-all"
                   value={registerPhoneNumber}
                   onChange={(e) => setRegisterPhoneNumber(e.target.value)}
                 />
@@ -149,129 +194,154 @@ const handleRegister = async (e: React.FormEvent) => {
             </div>
 
             <div>
-              <Label>Email</Label>
-              <div className="relative">
+              <Label className="text-gray-700">Email <span className="text-red-500">*</span></Label>
+              <div className="relative mt-1.5">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
-                  type="email"
-                  placeholder="Alamat Email"
+                  type="text" // Pakai text biar validasi regex kita yang handle
+                  placeholder="nama@gmail.com"
                   value={registerEmail}
                   onChange={(e) => setRegisterEmail(e.target.value)}
-                  className="pl-9"
-                  required
+                  className="pl-10 h-11 bg-gray-50 border-gray-200 focus:bg-white focus:border-emerald-500 transition-all"
                 />
               </div>
             </div>
 
-            <div>
-              <Label>Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  type={showRegisterPassword ? "text" : "password"}
-                  placeholder="Password"
-                  value={registerPassword}
-                  onChange={(e) => setRegisterPassword(e.target.value)}
-                  className="pl-9 pr-10"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowRegisterPassword(!showRegisterPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {showRegisterPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+            {/* Register Password */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-gray-700">Password <span className="text-red-500">*</span></Label>
+                <div className="relative mt-1.5">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    type={showRegisterPassword ? "text" : "password"}
+                    placeholder="Min. 6 karakter"
+                    value={registerPassword}
+                    onChange={(e) => setRegisterPassword(e.target.value)}
+                    className="pl-10 pr-10 h-11 bg-gray-50 border-gray-200 focus:bg-white focus:border-emerald-500 transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showRegisterPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-gray-700">Konfirmasi <span className="text-red-500">*</span></Label>
+                <div className="relative mt-1.5">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    type={showRegisterConfirmPassword ? "text" : "password"}
+                    placeholder="Ulangi Password"
+                    value={registerConfirmPassword}
+                    onChange={(e) => setRegisterConfirmPassword(e.target.value)}
+                    className="pl-10 pr-10 h-11 bg-gray-50 border-gray-200 focus:bg-white focus:border-emerald-500 transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowRegisterConfirmPassword(!showRegisterConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showRegisterConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
             </div>
 
-            <Button type="submit" className="w-full h-12 bg-green-600 hover:bg-green-700 text-white font-semibold" disabled={isLoading}>
-              {isLoading ? "Memproses..." : "Register"}
+            <Button 
+                type="submit" 
+                className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-base rounded-lg shadow-md hover:shadow-lg transition-all mt-2" 
+                disabled={isLoading}
+            >
+              {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Memproses...</> : "Daftar Sekarang"}
             </Button>
-
-            {registerError && (
-              <Alert className="border-red-200 bg-red-50 mt-2">
-                <AlertDescription className="text-red-800">{registerError}</AlertDescription>
-              </Alert>
-            )}
           </form>
         </div>
 
         {/* RIGHT - LOGIN */}
-        <div className="p-8 pt-20 relative z-10">
-          <h2 className="text-3xl font-extrabold text-gray-900 mb-10">Sign In</h2>
-          <form onSubmit={handleLogin} className="space-y-6">
-            {loginError && (
-              <Alert className="border-red-200 bg-red-50">
-                <AlertDescription className="text-red-800">{loginError}</AlertDescription>
-              </Alert>
-            )}
-
-            <div>
-              <Label>Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  type="email"
-                  placeholder="Alamat Email"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  className="pl-9"
-                  required
-                />
-              </div>
+        <div className="p-8 md:p-12 pt-20 relative z-10 bg-gray-50/50 flex flex-col justify-center">
+          <div className="max-w-md mx-auto w-full">
+            <div className="mb-8">
+                <h2 className="text-3xl font-extrabold text-gray-900">Selamat Datang Kembali</h2>
+                <p className="text-gray-500 mt-2 text-sm">Silakan masuk untuk mengakses akun Anda</p>
             </div>
 
-            <div>
-              <Label>Password</Label>
+            <form onSubmit={handleLogin} className="space-y-6">
+              <div>
+                <Label className="text-gray-700">Email</Label>
+                <div className="relative mt-1.5">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    type="text"
+                    placeholder="nama@email.com"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    className="pl-10 h-12 bg-white border-gray-200 focus:border-emerald-500 transition-all shadow-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                    <Label className="text-gray-700">Password</Label>
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    type={showLoginPassword ? "text" : "password"}
+                    placeholder="Masukkan Password"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    className="pl-10 pr-10 h-12 bg-white border-gray-200 focus:border-emerald-500 transition-all shadow-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowLoginPassword(!showLoginPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <Button 
+                type="submit" 
+                className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-base rounded-lg shadow-md hover:shadow-lg transition-all" 
+                disabled={isLoading}
+              >
+                {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Memeriksa...</> : "Masuk ke Akun"}
+              </Button>
+            </form>
+
+            {/* Google Login */}
+            <div className="mt-8">
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  type={showLoginPassword ? "text" : "password"}
-                  placeholder="Password"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  className="pl-9 pr-10"
-                  required
-                />
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-gray-300" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-gray-50 px-2 text-gray-500">Atau lanjutkan dengan</span>
+                </div>
+              </div>
+
+              <div className="mt-6">
                 <button
                   type="button"
-                  onClick={() => setShowLoginPassword(!showLoginPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all"
+                  onClick={handleGoogleLogin}
                 >
-                  {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  <img className="h-5 w-5 mr-3" src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google Logo" />
+                  Google
                 </button>
               </div>
             </div>
-
-            <Button type="submit" className="w-full h-12 bg-green-600 hover:bg-green-700 text-white font-semibold" disabled={isLoading}>
-              {isLoading ? "Memproses..." : "Login"}
-            </Button>
-          </form>
-
-          {/* Google Login */}
-          <div className="mt-6 text-center">
-            <span className="text-gray-500">atau</span>
-          </div>
-          <div className="mt-6 flex items-center justify-center">
-            <button
-              type="button"
-              className="bg-light px-4 py-2 border flex gap-2 border-slate-200 rounded-lg text-slate-700 hover:border-slate-400 hover:text-slate-900 hover:shadow transition duration-150"
-              onClick={handleGoogleLogin}
-            >
-              <img className="w-6 h-6" src="https://www.svgrepo.com/show/475656/google-color.svg" alt="google logo" />
-              Login dengan Google
-            </button>
           </div>
         </div>
       </div>
-
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className={`fixed bottom-4 right-4 px-4 py-2 rounded shadow text-white ${toastType === "success" ? "bg-green-600" : "bg-red-600"}`}>
-          {toastMessage}
-        </div>
-      )}
     </div>
   )
 }

@@ -99,7 +99,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     : "AD"
 
   return (
-    <Sidebar collapsible="icon" {...props}>
+    <Sidebar collapsible="icon" {...props} className="font-sans">
       {/* --- HEADER SIDEBAR (LOGO MASJID) --- */}
       <SidebarHeader>
         <SidebarMenu>
@@ -149,7 +149,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarContent>
 
       {/* --- FOOTER (USER PROFILE & LOGOUT) --- */}
-      <SidebarFooter>
+      <SidebarFooter className="font-sans">
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
@@ -181,7 +181,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       <AvatarImage src={user?.avatar || ""} alt={user?.name} />
                       <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
                     </Avatar>
-                    <div className="grid flex-1 text-left text-sm leading-tight">
+                    <div className="grid flex-1 text-left text-sm leading-tight font-sans">
                       <span className="truncate font-semibold">{user?.name}</span>
                       <span className="truncate text-xs">{user?.email}</span>
                     </div>
@@ -190,17 +190,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <DropdownMenuSeparator />
                 
                 {/* --- MENU GROUP AKUN --- */}
-                <DropdownMenuGroup>
+                <DropdownMenuGroup className="font-sans">
                   <DropdownMenuItem asChild>
                     {/* Link ke halaman Profile */}
                     <Link href="/admin/profile" className="cursor-pointer">
                       <BadgeCheck className="mr-2 h-4 w-4" />
                       Account
                     </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Bell className="mr-2 h-4 w-4" />
-                    Notifications
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
                 

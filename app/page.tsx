@@ -11,19 +11,17 @@ import {
   Truck,
   Calculator,
   FileText,
-  ChurchIcon as Mosque,
   HandHeart,
   ChevronRight,
-  Star,
-  Settings,
+  LogOut,
 } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar" 
 import { useAuth } from "@/contexts/auth-context"
 import { getTodayDate } from './utils/date';
 import CountUp from '@/components/countup'
@@ -32,16 +30,28 @@ import { motion, AnimatePresence } from "framer-motion"
 import { getTotalDonations } from "@/lib/api/donation";
 import { GiCow } from "react-icons/gi";
 
-
+// Helper Inisial
+const getInitials = (name?: string | null) => 
+  name ? name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() : "U"
 
 export default function HomePage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const { user, logout } = useAuth()
   const [prayerTimes, setPrayerTimes] = useState<{ name: string; time: string }[]>([]);
   const [loggingOut, setLoggingOut] = useState(false);
+  
+  // STATE DATA REALTIME
   const [totalDonasi, setTotalDonasi] = useState<number>(0);
+  const [stats, setStats] = useState({
+    jamaah: 0,
+    programs: 0,
+    ambulance: 0
+  });
 
+  // API URL
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
 
+  // 1. Fetch Location & Prayer Times
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(async (pos) => {
       const lat = pos.coords.latitude;
@@ -64,13 +74,13 @@ export default function HomePage() {
     });
   }, []);
 
+  // 2. Background Image Slider
   const images = [
     "/bg-alhuda.jpeg",
     "/bg-alhuda2.jpeg",
     "/bg-alhuda3.jpeg",
     "/bg-alhuda4.jpeg",
   ];
-
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
@@ -80,18 +90,32 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, [images.length]);
 
+  // 3. FETCH DATA DASHBOARD (DONASI & STATS LAIN)
   useEffect(() => {
-    async function fetchTotal() {
+    async function fetchData() {
       try {
-        const data = await getTotalDonations();
-        const total = (data as any)?.total ?? (typeof data === "number" ? data : 0);
+        // A. Total Donasi
+        const donasiData = await getTotalDonations();
+        const total = (donasiData as any)?.total ?? (typeof donasiData === "number" ? donasiData : 0);
         setTotalDonasi(total);
+
+        // B. Public Stats (Jamaah, Program, Ambulan)
+        const resStats = await fetch(`${API_URL}/public-stats`);
+        if (resStats.ok) {
+          const statsData = await resStats.json();
+          // Pastikan backend mereturn JSON dengan key yang sesuai
+          setStats({
+            jamaah: statsData.jamaah || 0,
+            programs: statsData.programs || 0,
+            ambulance: statsData.ambulance || 0
+          });
+        }
       } catch (error) {
-        console.error("❌ Gagal fetch total donasi:", error);
+        console.error("❌ Gagal fetch data dashboard:", error);
       }
     }
-    fetchTotal();
-  }, []);
+    fetchData();
+  }, []); // Run once on mount
 
   const mainFeatures = [
     {
@@ -124,14 +148,29 @@ export default function HomePage() {
     },
   ]
 
+  // DATA QUICK STATS (REALTIME DARI STATE)
   const quickStats = [
-    { label: "Total Donasi Bulan Ini", value: totalDonasi.toString(), icon: <DollarSign className="h-6 w-6" /> },
-    { label: "Jamaah Terdaftar", value: "250", icon: <Users className="h-6 w-6" /> },
-    { label: "Program Aktif", value: "12", icon: <Calendar className="h-6 w-6" /> },
-    { label: "Layanan Ambulan", value: "69", icon: <Truck className="h-6 w-6" /> },
+    { 
+      label: "Total Donasi Terkumpul", 
+      value: totalDonasi, 
+      icon: <DollarSign className="h-6 w-6" /> 
+    },
+    { 
+      label: "Jamaah Terdaftar", 
+      value: stats.jamaah, 
+      icon: <Users className="h-6 w-6" /> 
+    },
+    { 
+      label: "Program Kegiatan", 
+      value: stats.programs, 
+      icon: <Calendar className="h-6 w-6" /> 
+    },
+    { 
+      label: "Layanan Ambulan Selesai", 
+      value: stats.ambulance, 
+      icon: <Truck className="h-6 w-6" /> 
+    },
   ]
-
-  // const [loggingOut, setLoggingOut] = useState(false)
 
   const handleLogout = async () => {
     setLoggingOut(true)
@@ -202,11 +241,13 @@ export default function HomePage() {
 
             {user ? (
               <div className="flex items-center space-x-4">
-                <Link href="/profile">
-                  <Button variant="outline" className="flex items-center space-x-2">
-                    <Users className="h-4 w-4" />
-                    {user?.name ?? "Profil"}
-                  </Button>
+                <Link href="/profile" title="Lihat Profil">
+                  <Avatar className="h-10 w-10 border-2 border-emerald-100 hover:border-emerald-500 transition-all cursor-pointer shadow-sm">
+                    <AvatarImage src={user.avatar} alt={user.name} className="object-cover" />
+                    <AvatarFallback className="bg-emerald-100 text-emerald-700 font-semibold">
+                      {getInitials(user.name)}
+                    </AvatarFallback>
+                  </Avatar>
                 </Link>
               </div>
             
@@ -218,8 +259,9 @@ export default function HomePage() {
                 </Button>
               </Link>
             )}
+            
             {!user && (
-            <Link href="/login">
+            <Link href="/donasi">
               <Button className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 shadow-lg">
                 <HandHeart className="mr-2 h-4 w-4" />
                 Donasi Sekarang
@@ -238,6 +280,19 @@ export default function HomePage() {
             </SheetTrigger>
             <SheetContent side="right" className="w-[300px]">
               <div className="flex flex-col space-y-4 mt-8">
+                {user && (
+                  <div className="flex items-center gap-3 mb-4 p-4 bg-emerald-50 rounded-lg">
+                    <Avatar className="h-10 w-10 border border-emerald-200">
+                      <AvatarImage src={user.avatar} className="object-cover"/>
+                      <AvatarFallback className="bg-white text-emerald-700">{getInitials(user.name)}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-semibold text-gray-900">{user.name}</p>
+                      <p className="text-xs text-gray-500">{user.email}</p>
+                    </div>
+                  </div>
+                )}
+
                 <Link href="/" className="text-lg font-medium" onClick={() => setIsMenuOpen(false)}>
                   Beranda
                 </Link>
@@ -260,18 +315,18 @@ export default function HomePage() {
                 {user ? (
                   <>
                     {user.role === "admin" && (
-                      <Link href="/admin" className="text-lg text-red-600" onClick={() => setIsMenuOpen(false)}>
+                      <Link href="/admin" className="text-lg text-red-600 font-medium" onClick={() => setIsMenuOpen(false)}>
                         Admin Panel
                       </Link>
                     )}
                     <Link href="/profile" className="text-lg" onClick={() => setIsMenuOpen(false)}>
-                      Profil ({user.name})
+                      Pengaturan Profil
                     </Link>
                     <Button
                       variant="outline"
                       onClick={handleLogout}
                       disabled={loggingOut}
-                      className="text-gray-600 hover:text-gray-800 flex items-center gap-2"
+                      className="text-gray-600 hover:text-gray-800 flex items-center gap-2 mt-4"
                     >
                       Keluar
                     </Button>
@@ -286,7 +341,7 @@ export default function HomePage() {
                 )}
                 {!user && (
                   <Link href="/donasi">
-                    <Button className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 shadow-lg">
+                    <Button className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 shadow-lg w-full">
                       <HandHeart className="mr-2 h-4 w-4" />
                       Donasi Sekarang
                     </Button>
@@ -345,7 +400,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Quick Stats */}
+      {/* Quick Stats - UPDATED REALTIME */}
       <section className="py-12 bg-white/80 backdrop-blur font-sans">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
@@ -375,7 +430,7 @@ export default function HomePage() {
       </section>
 
 
-      {/* Main Features - Prominent Section */}
+      {/* Main Features */}
       <section id="layanan-utama" className="py-20 bg-white font-sans">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
@@ -467,7 +522,6 @@ export default function HomePage() {
       {/* CTA Section */}
       <section className="py-20 bg-black relative overflow-hidden bg-[url('/bg-alhuda2.jpeg')] 
           bg-cover bg-center font-sans">
-        {/* Overlay gelap supaya teks kontras */}
         <div className="absolute inset-0 bg-black/70"></div>
         <div className="container mx-auto px-4 relative">
           <div className="text-center text-white max-w-4xl mx-auto">
@@ -566,11 +620,6 @@ export default function HomePage() {
                     Laporan Keuangan
                   </Link>
                 </li>
-                <li>
-                  <Link href="/kontak" className="hover:text-emerald-400 transition-colors">
-                    Hubungi Kami
-                  </Link>
-                </li>
               </ul>
             </div>
 
@@ -578,8 +627,8 @@ export default function HomePage() {
               <h3 className="font-bold mb-4 text-emerald-400">Kontak</h3>
               <ul className="space-y-3 text-gray-300">
                 <li className="flex items-center space-x-2">
-                  <MapPin className="h-4 w-4 text-emerald-400" />
-                  <span>Jl. Masjid Raya No. 123, Jakarta</span>
+                  <MapPin className="h-8 w-8 text-emerald-400" />
+                  <span>Jl. Perkutut No.1, Dajan Peken, Kec. Tabanan, Kabupaten Tabanan, Bali</span>
                 </li>
                 <li className="flex items-center space-x-2">
                   <Phone className="h-4 w-4 text-emerald-400" />

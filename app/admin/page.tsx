@@ -259,7 +259,7 @@ export default function AdminDashboard() {
   return (
     <>
       <Toaster position="top-right" />
-      <div className="flex flex-col h-screen bg-gray-50/50">
+      <div className="flex flex-col h-screen bg-gray-50/50 font-sans">
 
         {/* MAIN CONTENT */}
         <main className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-8">

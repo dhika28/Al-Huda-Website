@@ -1,9 +1,11 @@
 import axios from "axios"
+import { ReactNode } from "react"
 
 // --- TYPES & INTERFACES ---
 
 // 1. Tipe Data untuk Request Peminjaman (Booking)
 export interface AmbulanceRequest {
+  [x: string]: ReactNode
   id: number
   user_id?: number
   request_type: "urgent" | "scheduled"
@@ -17,7 +19,7 @@ export interface AmbulanceRequest {
   patient_phone: string
   
   // Medical
-  condition: string 
+  medical_condition: string 
   
   // Location
   pickup_address: string
@@ -43,7 +45,7 @@ export interface AmbulanceRequestPayload {
   patient_age: number
   patient_gender: string
   patient_phone: string
-  condition: string
+  medical_condition: string
   pickup_address: string
   destination: string
   landmark?: string

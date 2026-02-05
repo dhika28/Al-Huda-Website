@@ -23,6 +23,13 @@ import {
   getQurbanHistory, // Import fungsi history dari API
 } from "@/lib/api/qurban";
 
+// 🔥 TAMBAHAN 1: DEFINISI WINDOW SNAP (Agar tidak error)
+declare global {
+  interface Window {
+    snap: any;
+  }
+}
+
 // Definisi Interface History (Jika belum ada di @/app/types/qurban)
 export interface QurbanHistory {
   id: number;
@@ -122,7 +129,7 @@ export function QurbanProvider({ children }: { children: ReactNode }) {
   }, [refreshHistory]);
 
   // =======================================
-  // 3. Register Qurban Function
+  // 3. Register Qurban Function (PERBAIKAN DISINI)
   // =======================================
   async function registerQurban(
     data: QurbanRegistrationInput
@@ -138,6 +145,36 @@ export function QurbanProvider({ children }: { children: ReactNode }) {
       // Jika berhasil, refresh history agar data baru muncul
       if (user) {
         await refreshHistory();
+      }
+
+      // 🔥 TAMBAHAN 2: LOGIKA POPUP MIDTRANS & REDIRECT
+      if (res?.token) {
+        if (window.snap) {
+          window.snap.pay(res.token, {
+            // --- SUKSES -> REDIRECT ---
+            onSuccess: function(result: any) {
+              console.log("✅ Sukses Bayar:", result);
+              window.location.href = `/payment/status?order_id=${result.order_id}&transaction_status=${result.transaction_status}&status_code=${result.status_code}`;
+            },
+            // --- PENDING -> REDIRECT ---
+            onPending: function(result: any) {
+              console.log("⏳ Pending:", result);
+              window.location.href = `/payment/status?order_id=${result.order_id}&transaction_status=pending&status_code=${result.status_code}`;
+            },
+            // --- ERROR -> REDIRECT ---
+            onError: function(result: any) {
+              console.log("❌ Error:", result);
+              window.location.href = `/payment/status?order_id=${result.order_id}&transaction_status=error&status_code=${result.status_code}`;
+            },
+            // --- CLOSE ---
+            onClose: function() {
+              alert('Anda menutup popup tanpa menyelesaikan pembayaran.');
+            }
+          });
+        } else {
+          console.error("Window Snap belum ter-load");
+          alert("Sistem pembayaran belum siap, silakan refresh halaman.");
+        }
       }
 
       return res;

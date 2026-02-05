@@ -125,46 +125,76 @@ export default function UserProfilePage() {
   const fetchActivities = async () => {
     if (!profile.id) return;
     setLoadingActivities(true);
+    
     try {
         const uid = profile.id;
-        // Gunakan API URL dari ENV atau default
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
+        // Pastikan Base URL sesuai backend Anda
+        const API_BASE = "http://localhost:8080/api/v1"; 
 
         const [resDonasi, resZakat, resQurban] = await Promise.all([
-            fetch(`${API_URL}/user-donations?user_id=${uid}`, { credentials: "include" }),
-            fetch(`${API_URL}/zakat?user_id=${uid}`, { credentials: "include" }),
-            fetch(`${API_URL}/qurban-history?user_id=${uid}`, { credentials: "include" })
+            fetch(`${API_BASE}/user-donations?user_id=${uid}`, { credentials: "include" }),
+            fetch(`${API_BASE}/zakat?user_id=${uid}`, { credentials: "include" }),
+            // Ini endpoint Qurban yang benar (sesuai lib/api anda)
+            fetch(`${API_BASE}/qurban/history?user_id=${uid}`, { credentials: "include" })
         ]);
 
         const donasiData = resDonasi.ok ? await resDonasi.json() : [];
         const zakatData = resZakat.ok ? await resZakat.json() : [];
         const qurbanData = resQurban.ok ? await resQurban.json() : [];
 
-        const mapItem = (item: any, type: string, titleKey: string) => ({
-            id: item.id,
-            type,
-            title: item[titleKey] || (type === 'donasi' ? 'Donasi Umum' : 'Transaksi'),
-            amount: Number(item.amount || item.price || 0),
-            created_at: item.created_at || item.createdAt || new Date().toISOString(),
-            status: item.status || "Selesai"
-        });
+        // console.log("DEBUG QURBAN:", qurbanData);
+
+        // Helper Mapping yang Kuat (Handle Huruf Besar/Kecil dari Backend)
+        const mapItem = (item: any, type: string, titleKey: string) => {
+            const id = item.id || item.ID || Math.random();
+            
+            // Cek Key Title (Go PascalCase vs JS camelCase)
+            let title = item[titleKey]; 
+            if (!title && titleKey === 'program_name') title = item.ProgramName;
+            if (!title && titleKey === 'zakat_type') title = item.ZakatType;
+            if (!title && titleKey === 'package_name') title = item.PackageName; // Penting untuk Qurban
+
+            // Fallback Title
+            if (!title) title = (type === 'donasi' ? 'Donasi Umum' : type === 'zakat' ? 'Zakat' : 'Qurban');
+
+            // Cek Amount (amount / price / Price / Amount)
+            const amount = Number(item.amount || item.Amount || item.price || item.Price || 0);
+
+            // Cek Date
+            const created_at = item.created_at || item.CreatedAt || new Date().toISOString();
+
+            // Cek Status
+            const status = item.status || item.Status || "pending";
+
+            return { id, type, title, amount, created_at, status };
+        };
 
         const all = [
-            ...(Array.isArray(donasiData) ? donasiData.map((d:any) => ({...mapItem(d, 'donasi', 'program_name'), title: d.program_id ? d.program_name : 'Donasi Cepat'})) : []),
+            ...(Array.isArray(donasiData) ? donasiData.map((d:any) => ({
+                ...mapItem(d, 'donasi', 'program_name'), 
+                title: d.program_id ? (d.program_name || d.ProgramName) : 'Donasi Cepat'
+            })) : []),
             ...(Array.isArray(zakatData) ? zakatData.map((z:any) => mapItem(z, 'zakat', 'zakat_type')) : []),
             ...(Array.isArray(qurbanData) ? qurbanData.map((q:any) => mapItem(q, 'qurban', 'package_name')) : [])
         ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
         setUserActivities(all);
+
     } catch (e) {
-        console.error("Activity error", e)
+        console.error("Activity fetch error:", e)
     } finally {
         setLoadingActivities(false);
     }
   }
 
-  useEffect(() => { fetchProfileData() }, [])
-  useEffect(() => { if(profile.id) fetchActivities() }, [profile.id])
+  // --- USE EFFECTS ---
+  useEffect(() => { 
+      fetchProfileData() 
+  }, []) // Run sekali saat mount
+
+  useEffect(() => { 
+      if(profile.id) fetchActivities() 
+  }, [profile.id]) // Run kalau ID user sudah dapat
   
   useEffect(() => {
     setCurrentPage(1)
@@ -469,7 +499,7 @@ export default function UserProfilePage() {
                 <div className="mt-4 flex justify-center gap-2">
                   <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 px-3 py-1 text-[10px] uppercase tracking-wide border border-emerald-100">{profile.status}</Badge>
                   <div className="text-xs text-gray-400 flex items-center gap-1 px-2 border-l border-gray-300">
-                      <Calendar className="h-3 w-3"/> Member sejak {new Date(profile.joinDate).getFullYear()}
+                      <Calendar className="h-3 w-3"/> Bergabung sejak {new Date(profile.joinDate).getFullYear()}
                   </div>
                 </div>
               </CardHeader>

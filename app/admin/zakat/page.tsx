@@ -226,7 +226,7 @@ export default function AdminZakatPage() {
   const handleExportPDF = () => toast.success("Export PDF berhasil");
 
   return (
-    <div className="w-full min-h-screen bg-slate-50/50 p-6 space-y-8 print:bg-white print:p-0 font-sans">
+    <div className="w-full min-h-screen bg-slate-50/50 p-6 space-y-8 print:bg-white print:p-0 font-sans font-sans">
       <Toaster position="top-center" />
       
       {/* HEADER SECTION */}

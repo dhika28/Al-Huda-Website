@@ -520,7 +520,7 @@ export default function AdminQurbanPage() {
   const handlePrevPage = () => { if (currentPage > 1) setCurrentPage(prev => prev - 1); };
 
   return (
-    <div className="w-full min-h-screen bg-slate-50/50 p-6 space-y-8 print:bg-white print:p-0">
+    <div className="w-full min-h-screen bg-slate-50/50 p-6 space-y-8 print:bg-white print:p-0 font-sans">
       <Toaster position="top-center" reverseOrder={false} />
 
       {/* HEADER SECTION */}
@@ -948,7 +948,7 @@ function ExpenseFormModal({ isOpen, onClose, onSave, initialData }: any) {
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-md font-sans">
                 <DialogHeader>
                     <DialogTitle>{initialData ? "Edit Pengeluaran" : "Catat Biaya Operasional"}</DialogTitle>
                     <DialogDescription>
@@ -1037,7 +1037,7 @@ function PackageFormModal({ isOpen, onClose, initialData, onSave }: any) {
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-md font-sans">
                 <DialogHeader>
                     <DialogTitle>{initialData ? 'Edit Paket' : 'Tambah Paket Baru'}</DialogTitle>
                     <DialogDescription>Konfigurasi detail paket qurban.</DialogDescription>
@@ -1176,7 +1176,7 @@ function ManualQurbanModal({ isOpen, onClose, packages, onSuccess }: any) {
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-lg flex flex-col max-h-[85vh]">
+            <DialogContent className="sm:max-w-lg flex flex-col max-h-[85vh] font-sans">
                 <DialogHeader>
                     <DialogTitle>Pendaftaran Manual</DialogTitle>
                     <DialogDescription>Input data peserta qurban offline/tunai.</DialogDescription>
@@ -1290,7 +1290,7 @@ function DetailQurbanModal({ data, isOpen, onClose }: { data: QurbanRegistration
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             {/* FIX: Tambahkan p-0 dan gap-0 agar header custom full width & hide default X */}
-            <DialogContent className="sm:max-w-lg p-0 gap-0 [&>button]:hidden">
+            <DialogContent className="sm:max-w-lg p-0 gap-0 [&>button]:hidden font-sans">
                 
                 {/* Header Custom */}
                 <div className="flex justify-between items-center px-6 py-4 border-b bg-slate-50/50">

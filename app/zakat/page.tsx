@@ -13,12 +13,31 @@ import { Textarea } from "@/components/ui/textarea"
 import { Progress } from "@/components/ui/progress"
 
 import { toast } from "@/components/ui/use-toast"
-// Import API Zakat
-import { createZakatPayment, getZakatDistribution, ZakatDistributionItem } from "@/lib/api/zakat"
+// Import API Zakat - DITAMBAHKAN: getDistributionLogs
+import { 
+  createZakatPayment, 
+  getZakatDistribution, 
+  getDistributionLogs, 
+  ZakatDistributionItem 
+} from "@/lib/api/zakat"
 import type { CreateZakatPaymentPayload } from "@/app/types/zakat"
 
+// Definisi Snap
+declare global {
+  interface Window {
+    snap: any;
+  }
+}
+
+// Helper User ID (Kita buat lebih santai, kalau null ya null aja)
+function getUserIdFromCookie() {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(/user_id=(\d+)/);
+  return match ? Number(match[1]) : null;
+}
+
 export default function ZakatPage() {
-  // --- STATE FORM PEMBAYARAN ---
+  // --- STATE FORM ---
   const [paymentForm, setPaymentForm] = useState({
     name: "",
     email: "",
@@ -33,17 +52,40 @@ export default function ZakatPage() {
 
   const [loading, setLoading] = useState(false)
 
-  // --- STATE DISTRIBUSI (REALTIME) ---
+  // --- STATE DISTRIBUSI ---
   const [distributionStats, setDistributionStats] = useState<ZakatDistributionItem[]>([])
   const [totalZakatPool, setTotalZakatPool] = useState(0)
 
-  // --- FETCH DATA DISTRIBUSI ON LOAD ---
+  // --- FETCH DATA (DIPERBAIKI: HITUNG PENERIMA DARI LOG) ---
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const data = await getZakatDistribution()
-        setDistributionStats(data.distribution)
-        setTotalZakatPool(data.total_zakat)
+        // 1. Ambil Data Distribusi (Pagu & Persentase) DAN Logs (Riwayat Nyata)
+        const [distData, logsData] = await Promise.all([
+            getZakatDistribution(),
+            getDistributionLogs().catch(() => []) // Fallback array kosong jika error
+        ])
+
+        // 2. Hitung Total Penerima per Kategori dari Logs
+        const logs = Array.isArray(logsData) ? logsData : []
+        const recipientMap: Record<number, number> = {}
+
+        logs.forEach((log: any) => {
+            const catId = log.distribution_setting_id
+            const count = Number(log.recipient_count) || 0
+            recipientMap[catId] = (recipientMap[catId] || 0) + count
+        })
+
+        // 3. Gabungkan Data: Masukkan hitungan log ke dalam state
+        const mergedData = distData.distribution.map((item: any) => ({
+            ...item,
+            // Override 'recipients' (yang tadinya estimasi sisa) dengan 'recipientMap' (total tersalurkan)
+            recipients: recipientMap[item.id] || 0
+        }))
+
+        setDistributionStats(mergedData)
+        setTotalZakatPool(distData.total_zakat)
+
       } catch (err) {
         console.error("Gagal memuat data distribusi", err)
       }
@@ -51,7 +93,7 @@ export default function ZakatPage() {
     fetchData()
   }, [])
 
-  // --- LOGIC FORM ---
+  // --- LOGIC FORM UPDATE ---
   const handlePeopleCount = (value: number) => {
     const count = value < 1 ? 1 : Math.floor(value)
     setPaymentForm((prev) => ({
@@ -70,27 +112,39 @@ export default function ZakatPage() {
     setPaymentForm({ ...paymentForm, extraNames: updated })
   }
 
-  const validate = (): string | null => {
-    if (!paymentForm.name.trim()) return "Nama utama wajib diisi."
-    if (!paymentForm.email.trim()) return "Email wajib diisi."
-    if (!paymentForm.phone.trim()) return "Nomor telepon wajib diisi."
-    if (paymentForm.peopleCount < 1) return "Jumlah orang minimal 1."
-    if (paymentForm.amount <= 0) return "Jumlah zakat tidak boleh 0."
-    return null
-  }
-
+  // --- LOGIC SUBMIT (DEBUG MODE) ---
   const handlePaymentSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault() // <--- HARUS ADA
+    console.log("👉 TOMBOL DIKLIK! Masuk fungsi submit...")
 
-    const v = validate()
-    if (v) {
-      toast({ title: "Validasi", description: v, variant: "destructive" })
-      return
+    // 1. Validasi Form Manual
+    if (!paymentForm.name.trim()) { alert("Nama wajib diisi"); return; }
+    if (!paymentForm.email.trim()) { alert("Email wajib diisi"); return; }
+    if (paymentForm.amount <= 0) { alert("Nominal tidak valid"); return; }
+
+    // 2. Cek User ID (JIKA NULL, KITA LANJUT AJA BIAR GAK MACET)
+    let userId = getUserIdFromCookie();
+    console.log("🔍 User ID dari Cookie:", userId);
+    
+    // Fallback: Kalau cookie gak kebaca (null), kita kirim 0 atau undefined
+    // Biarkan Backend yang nolak kalau emang wajib login
+    if (!userId) {
+        console.warn("⚠️ User ID tidak ditemukan di Cookie (Mungkin HTTPOnly). Lanjut request...");
+        userId = 0; 
+    }
+
+    // 3. Cek Script Snap Midtrans
+    if (typeof window.snap === "undefined") {
+        alert("Sistem pembayaran (Snap) belum siap. Coba refresh halaman.");
+        console.error("❌ window.snap is undefined");
+        return;
     }
 
     setLoading(true)
+    console.log("⏳ Mengirim data ke backend...")
 
     const payload: CreateZakatPaymentPayload = {
+      user_id: userId || undefined, // Kirim undefined kalau 0
       name: paymentForm.name.trim(),
       email: paymentForm.email.trim(),
       phone: paymentForm.phone.trim(),
@@ -104,23 +158,41 @@ export default function ZakatPage() {
 
     try {
       const res = await createZakatPayment(payload)
+      console.log("✅ Response Backend:", res)
 
-      if (res.redirect_url) {
-        window.location.href = res.redirect_url
-        return
+      // Cek Token
+      if (!res?.token) {
+        throw new Error("Token tidak diterima dari backend.")
       }
 
-      // Jika backend tidak kirim redirect_url (misal mode manual/testing), beri notif sukses
-      toast({
-        title: "Berhasil",
-        description: "Data zakat berhasil dikirim. Silakan lanjutkan pembayaran.",
+      console.log("💳 Membuka Popup Midtrans...")
+
+      // 4. POPUP
+      window.snap.pay(res.token, {
+        onSuccess: function(result: any) {
+            console.log("🎉 Sukses:", result);
+            // GUNAKAN ASSIGN AGAR PAKSA RELOAD
+            window.location.assign(`/payment/status?order_id=${result.order_id}&transaction_status=${result.transaction_status}&status_code=${result.status_code}`);
+        },
+        onPending: function(result: any) {
+            console.log("⏳ Pending:", result);
+            window.location.assign(`/payment/status?order_id=${result.order_id}&transaction_status=pending&status_code=${result.status_code}`);
+        },
+        onError: function(result: any) {
+            console.log("💥 Error:", result);
+            window.location.assign(`/payment/status?order_id=${result.order_id}&transaction_status=error&status_code=${result.status_code}`);
+        },
+        onClose: function() {
+            console.log("🚫 Close");
+            toast({ title: "Info", description: "Pembayaran belum diselesaikan." })
+        }
       })
-      // Optional: Reset form here
+
     } catch (err: any) {
-      console.error("zakat submit error:", err)
+      console.error("❌ Error Submit:", err)
       toast({
         title: "Gagal",
-        description: err?.message || "Server error",
+        description: err?.message || "Terjadi kesalahan server",
         variant: "destructive",
       })
     } finally {
@@ -128,18 +200,15 @@ export default function ZakatPage() {
     }
   }
 
-  // Helper Format Rupiah
+  // Format Rupiah
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      maximumFractionDigits: 0,
+      style: "currency", currency: "IDR", maximumFractionDigits: 0,
     }).format(amount)
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50/40 to-blue-50/40 font-sans">
-      {/* HEADER */}
       <header className="bg-white/95 backdrop-blur border-b shadow-sm sticky top-0 z-30">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center space-x-4">
@@ -156,7 +225,6 @@ export default function ZakatPage() {
         </div>
       </header>
 
-      {/* CONTENT */}
       <div className="container mx-auto px-4 py-10">
         <Tabs defaultValue="payment" className="space-y-8">
           <div className="flex justify-center">
@@ -166,55 +234,47 @@ export default function ZakatPage() {
             </TabsList>
           </div>
 
-          {/* =============================== */}
-          {/* TAB 1: FORM PEMBAYARAN */}
-          {/* =============================== */}
           <TabsContent value="payment">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-              {/* LEFT: FORM */}
               <Card className="border-0 shadow-lg lg:col-span-2">
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
                     <Banknote className="h-6 w-6 text-emerald-600" />
                     <span>Form Pembayaran Zakat Fitrah</span>
                   </CardTitle>
-                  <CardDescription>Isi data untuk memproses pembayaran zakat fitrah.</CardDescription>
                 </CardHeader>
 
                 <CardContent>
                   <form onSubmit={handlePaymentSubmit} className="space-y-6">
-
-                    {/* INPUT GRID */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
                         <Label>Nama Lengkap</Label>
                         <Input
+                          required
                           placeholder="Nama lengkap (Muzakki)"
                           value={paymentForm.name}
                           onChange={(e) => setPaymentForm({ ...paymentForm, name: e.target.value })}
                         />
                       </div>
-
                       <div>
                         <Label>Email</Label>
                         <Input
+                          required
                           type="email"
                           placeholder="email@example.com"
                           value={paymentForm.email}
                           onChange={(e) => setPaymentForm({ ...paymentForm, email: e.target.value })}
                         />
                       </div>
-
                       <div>
                         <Label>No. Telepon / WA</Label>
                         <Input
+                          required
                           placeholder="08xxxxxxxx"
                           value={paymentForm.phone}
                           onChange={(e) => setPaymentForm({ ...paymentForm, phone: e.target.value })}
                         />
                       </div>
-
                       <div>
                         <Label>Jumlah Jiwa</Label>
                         <Input
@@ -224,23 +284,19 @@ export default function ZakatPage() {
                           onChange={(e) => handlePeopleCount(Number(e.target.value))}
                         />
                       </div>
-
                       <div className="md:col-span-2 bg-emerald-50 border border-emerald-100 p-4 rounded-lg">
                         <Label className="text-emerald-800">Total Zakat (IDR)</Label>
                         <Input 
-                            type="text" 
+                            readOnly
                             value={formatCurrency(paymentForm.amount)} 
-                            disabled 
                             className="bg-white text-lg font-bold text-emerald-700 mt-1" 
                         />
-                        <p className="text-xs text-emerald-600 mt-1">*Nilai setara 2.5 kg beras (Rp 50.000) per jiwa.</p>
                       </div>
                     </div>
 
-                    {/* EXTRA NAMES */}
                     {paymentForm.peopleCount > 1 && (
                       <div className="space-y-3 bg-slate-50 p-4 rounded-lg border">
-                        <Label>Nama Anggota Keluarga (Niat Zakat Untuk)</Label>
+                        <Label>Nama Anggota Keluarga</Label>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {paymentForm.extraNames.map((name, i) => (
                             <Input
@@ -258,29 +314,31 @@ export default function ZakatPage() {
                     <div>
                       <Label>Alamat</Label>
                       <Textarea
-                        placeholder="Alamat lengkap domisili"
                         value={paymentForm.address}
                         onChange={(e) => setPaymentForm({ ...paymentForm, address: e.target.value })}
                       />
                     </div>
-
                     <div>
-                      <Label>Niat / Doa (Opsional)</Label>
+                      <Label>Niat / Doa</Label>
                       <Textarea
-                        placeholder="Tuliskan niat atau doa khusus..."
                         value={paymentForm.message}
                         onChange={(e) => setPaymentForm({ ...paymentForm, message: e.target.value })}
                       />
                     </div>
 
-                    <Button disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-700 text-lg py-6" type="submit">
-                      {loading ? "Memproses..." : "Bayar Zakat Sekarang"}
+                    <Button 
+                        type="submit" 
+                        disabled={loading} 
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-lg py-6"
+                    >
+                      {loading ? "Sedang Memproses..." : "Bayar Zakat Sekarang"}
                     </Button>
                   </form>
                 </CardContent>
               </Card>
+              
 
-              {/* RIGHT: INFORMASI ZAKAT */}
+              {/* SIDEBAR INFO */}
               <div className="space-y-6">
                 <Card className="shadow-md border-0">
                   <CardHeader>
@@ -329,9 +387,6 @@ export default function ZakatPage() {
             </div>
           </TabsContent>
 
-          {/* =============================== */}
-          {/* TAB 2: DISTRIBUSI (DATA REALTIME) */}
-          {/* =============================== */}
           <TabsContent value="distribution">
             <Card className="border-0 shadow-lg">
               <CardHeader>
@@ -370,12 +425,9 @@ export default function ZakatPage() {
                             </div>
                         </div>
 
-                        {/* Progress Bar dengan warna dinamis dari API */}
                         <Progress 
                             value={item.percentage} 
                             className={`h-3 ${item.color.replace('bg-', 'text-')}`} 
-                            // Note: Shadcn Progress uses 'indicatorClassName' for color usually, 
-                            // or verify if your Progress component supports className override
                         />
                         
                         <div className="flex justify-between items-center text-sm text-gray-500 bg-gray-50 p-2 rounded">

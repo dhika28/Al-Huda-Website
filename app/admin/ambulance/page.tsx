@@ -4,16 +4,13 @@ import { useState, useEffect } from "react"
 import {
   Ambulance,
   Phone,
-  MapPin,
   Clock,
-  Users,
   AlertTriangle,
   CheckCircle2,
   XCircle,
   Plus,
   Siren,
   Search,
-  RefreshCw,
   Car,
   Trash2,
   Pencil,
@@ -24,8 +21,8 @@ import {
   Ban, 
   ChevronLeft,
   ChevronRight,
-  PhoneIncoming,
-  User
+  User,
+  Calendar,
 } from "lucide-react"
 import { Toaster, toast } from "react-hot-toast"
 
@@ -148,8 +145,6 @@ export default function AdminAmbulancePage() {
     }
   }
 
-  // --- ✅ FIX: HANDLE UPDATE STATUS WITH DRIVER INFO ---
-  // Menambahkan parameter currentDriver dan currentUnit agar data tidak hilang saat status berubah jadi completed
   const handleUpdateStatus = (id: number, status: string, currentDriver?: string, currentUnit?: string) => {
     toast((t) => (
         <div className="flex flex-col gap-2">
@@ -164,7 +159,6 @@ export default function AdminAmbulancePage() {
                     onClick={async () => {
                         toast.dismiss(t.id)
                         try {
-                            // ✅ FIX: Kirim kembali driver & unit yang sedang bertugas agar database tidak mengosongkannya
                             await AmbulanceService.updateStatus(id, status, currentDriver, currentUnit)
                             toast.success(`Status diperbarui: ${status}`)
                             fetchData()
@@ -287,15 +281,14 @@ export default function AdminAmbulancePage() {
   }
 
   return (
-    <div className="w-full min-h-screen bg-slate-50/50 p-6 space-y-6 print:bg-white print:p-0">
+    <div className="w-full min-h-screen bg-slate-50/50 p-6 space-y-6 print:bg-white print:p-0 font-sans">
       <Toaster position="top-center" />
 
-      {/* TOP SECTION - REFINED */}
+      {/* TOP SECTION */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-slate-900">Dispatcher Dashboard</h2>
           <div className="flex items-center gap-2 mt-1 text-sm text-slate-500">
-            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
             <p>System Operational • {formatDateTime(new Date().toISOString())}</p>
           </div>
         </div>
@@ -311,8 +304,8 @@ export default function AdminAmbulancePage() {
 
       {/* TABS & MAIN CONTENT */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        
-        <div className="border-b border-slate-200 pb-1 print:hidden">
+
+        <div className="border-b border-slate-200 pb-1 print:hidden font-sans">
           <TabsList className="bg-transparent p-0 h-auto gap-6">
             <TabsTrigger value="requests" className="px-0 py-2 text-sm font-medium text-slate-500 data-[state=active]:text-emerald-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-emerald-600 rounded-none transition-all">Daftar Permintaan</TabsTrigger>
             <TabsTrigger value="fleet" className="px-0 py-2 text-sm font-medium text-slate-500 data-[state=active]:text-emerald-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-emerald-600 rounded-none transition-all">Data Armada</TabsTrigger>
@@ -363,9 +356,16 @@ export default function AdminAmbulancePage() {
                                             <Badge variant="outline" className={`${getStatusBadgeColor(req.status)} font-medium capitalize`}>
                                                 {req.status === 'dispatched' ? 'ON DUTY' : req.status}
                                             </Badge>
-                                            {req.request_type === 'urgent' && <Badge variant="destructive" className="text-[10px] h-5 px-1.5 font-bold">URGENT</Badge>}
+                                            
+                                            {req.request_type === 'urgent' ? (
+                                                <Badge variant="destructive" className="text-[10px] h-5 px-1.5 font-bold">URGENT</Badge>
+                                            ) : (
+                                                <Badge className="bg-blue-600 hover:bg-blue-700 text-[10px] h-5 px-1.5 font-bold">TERJADWAL</Badge>
+                                            )}
+
                                             <span className="text-xs text-slate-400 flex items-center gap-1 ml-auto lg:ml-0 font-medium"><Clock className="h-3 w-3"/> {formatDateTime(req.created_at)}</span>
                                         </div>
+                                        
                                         <div>
                                             <h3 className="text-lg font-bold text-slate-900">{req.patient_name} <span className="text-sm font-normal text-slate-500">({req.patient_gender === 'male' ? 'L' : 'P'}, {req.patient_age} Thn)</span></h3>
                                             <div className="flex flex-wrap gap-4 text-sm text-slate-600 mt-1.5">
@@ -373,13 +373,18 @@ export default function AdminAmbulancePage() {
                                                 <span className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded border border-slate-100"><User className="h-3.5 w-3.5 text-slate-400"/> CP: {req.contact_person}</span>
                                             </div>
                                         </div>
+
+                                        {/* KONDISI MEDIS (TAMPILAN LIST) */}
                                         <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 mt-2">
                                             <p className="text-[10px] font-bold text-slate-500 uppercase mb-1 flex items-center gap-1"><AlertTriangle className="h-3 w-3"/> Kondisi Medis</p>
-                                            <p className="text-sm text-slate-700 font-medium leading-relaxed">{req.condition || "-"}</p>
+                                            {/* FALLBACK FIELD: Cek condition ATAU medical_condition */}
+                                            <p className="text-sm text-slate-700 font-medium leading-relaxed">
+                                                {req.condition || req.medical_condition || "Tidak ada keterangan"}
+                                            </p>
                                         </div>
                                     </div>
 
-                                    {/* RUTE (COLORED) */}
+                                    {/* RUTE */}
                                     <div className="flex-1 lg:border-l lg:border-slate-100 lg:pl-6 space-y-4 pt-4 lg:pt-0 border-t lg:border-t-0 border-slate-100">
                                         <div className="relative pl-6 border-l-2 border-slate-200 space-y-6 ml-1 py-1">
                                             <div className="relative">
@@ -416,7 +421,6 @@ export default function AdminAmbulancePage() {
                                                     <div className="flex items-center gap-2 text-slate-900 font-medium"><User className="h-3 w-3 text-slate-400"/> {req.assigned_driver || "-"}</div>
                                                     <div className="flex items-center gap-2 text-slate-900 font-medium"><Car className="h-3 w-3 text-slate-400"/> {req.assigned_unit || "-"}</div>
                                                 </div>
-                                                {/* ✅ PASSING DRIVER & UNIT SAAT COMPLETE */}
                                                 <Button className="bg-emerald-600 hover:bg-emerald-700 w-full shadow-sm text-white" onClick={() => handleUpdateStatus(req.id, "completed", req.assigned_driver, req.assigned_unit)}>
                                                     <CheckCircle2 className="mr-2 h-4 w-4" /> Selesai Tugas
                                                 </Button>
@@ -502,14 +506,13 @@ export default function AdminAmbulancePage() {
            )}
         </TabsContent>
 
-        {/* --- TAB 3: DRIVERS --- */}
         <TabsContent value="drivers" className="mt-4 space-y-4">
             <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                 <div>
                     <h3 className="font-bold text-lg text-slate-900">Daftar Driver</h3>
                     <p className="text-sm text-slate-500">Kelola personel driver ambulance.</p>
                 </div>
-                <Button onClick={() => setIsDriverModalOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"><Plus className="mr-2 h-4 w-4"/> Tambah Driver</Button>
+                <Button onClick={() => setIsDriverModalOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm font-sans"><Plus className="mr-2 h-4 w-4"/> Tambah Driver</Button>
             </div>
             {drivers.length === 0 ? (
                 <div className="col-span-3 text-center py-10 text-slate-500 bg-white rounded-xl border border-dashed border-slate-200">
@@ -602,7 +605,7 @@ export default function AdminAmbulancePage() {
 
       {/* DRIVER MODAL */}
       <Dialog open={isDriverModalOpen} onOpenChange={setIsDriverModalOpen}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md font-sans">
               <DialogHeader><DialogTitle>Tambah Driver Baru</DialogTitle></DialogHeader>
               <form onSubmit={async (e) => {
                   e.preventDefault();
@@ -641,9 +644,7 @@ export default function AdminAmbulancePage() {
   )
 }
 
-/* =======================
-   SUB-COMPONENTS UI
-======================= */
+// --- SUB-COMPONENTS ---
 
 function StatCard({ title, value, icon, trend, bgIcon }: { title: string; value: string; icon: React.ReactNode; trend: string; bgIcon: string }) {
   return (
@@ -656,8 +657,26 @@ function StatCard({ title, value, icon, trend, bgIcon }: { title: string; value:
   );
 }
 
+// --- DETAIL MODAL WITH FULL SCHEDULE ---
 function RequestDetailModal({ data, onClose }: { data: AmbulanceRequest; onClose: () => void }) {
     if (!data) return null;
+
+    const formatFullSchedule = (dateStr: string) => {
+        try {
+            return new Date(dateStr).toLocaleDateString('id-ID', {
+                weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+            })
+        } catch { return dateStr }
+    }
+
+    // Ambil jam dari notes jika ada format [JAM JEMPUT: HH:mm]
+    const extractTimeFromNotes = (notes: string) => {
+        const match = notes.match(/\[JAM JEMPUT: (.*?)\]/);
+        return match ? match[1] : null;
+    }
+
+    const scheduledTime = data.notes ? extractTimeFromNotes(data.notes) : null;
+
     return (
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
@@ -678,11 +697,50 @@ function RequestDetailModal({ data, onClose }: { data: AmbulanceRequest; onClose
                         {data.status === 'completed' ? <CheckCircle2 className="h-5 w-5"/> : <Ambulance className="h-5 w-5"/>}
                         <div><p className="font-bold text-sm uppercase">Status: {data.status}</p>{data.assigned_unit && <p className="text-xs opacity-80">Unit: {data.assigned_unit}</p>}</div>
                     </div>
+
+                    {/* JADWAL (Moved here) */}
+                    {data.request_type === 'scheduled' && data.scheduled_date && (
+                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                            <h4 className="text-blue-800 font-bold text-sm flex items-center gap-2 mb-3 pb-2 border-b border-blue-200/50">
+                                <Calendar className="h-4 w-4" /> Detail Jadwal Penjemputan
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <span className="text-[10px] text-blue-600 font-semibold uppercase tracking-wider block mb-1">Hari & Tanggal</span>
+                                    <p className="text-sm font-bold text-slate-800">{formatFullSchedule(data.scheduled_date)}</p>
+                                </div>
+                                {scheduledTime && (
+                                    <div>
+                                        <span className="text-[10px] text-blue-600 font-semibold uppercase tracking-wider block mb-1">Waktu / Jam</span>
+                                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-200">{scheduledTime}</Badge>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-1 gap-4 text-sm">
                         <div className="space-y-1"><Label className="text-slate-500 text-xs">Pasien</Label><p className="font-medium text-slate-900 text-base">{data.patient_name} <span className="text-slate-400 text-sm">({data.patient_age} Thn)</span></p></div>
                         <div className="grid grid-cols-2 gap-4"><div className="space-y-1"><Label className="text-slate-500 text-xs">Kontak</Label><p className="font-medium text-slate-900">{data.patient_phone}</p></div><div className="space-y-1"><Label className="text-slate-500 text-xs">Penanggung Jawab</Label><p className="font-medium text-slate-900">{data.contact_person}</p></div></div>
-                        <div className="p-3 bg-red-50 rounded border border-red-100"><Label className="text-red-600 text-xs font-bold uppercase">Kondisi Medis</Label><p className="font-medium text-slate-800 mt-1">{data.condition}</p></div>
-                        <div className="space-y-3 pt-2 border-t border-slate-100"><div className="relative pl-4 border-l-2 border-slate-200"><span className="absolute -left-[5px] top-1 h-2 w-2 rounded-full bg-emerald-500"></span><Label className="text-xs text-slate-500">Jemput</Label><p className="text-sm font-medium text-slate-900">{data.pickup_address}</p></div><div className="relative pl-4 border-l-2 border-slate-200"><span className="absolute -left-[5px] top-1 h-2 w-2 rounded-full bg-red-500"></span><Label className="text-xs text-slate-500">Tujuan</Label><p className="text-sm font-medium text-slate-900">{data.destination}</p></div></div>
+                        
+                        <div className="p-3 bg-red-50 rounded border border-red-100">
+                            <Label className="text-red-600 text-xs font-bold uppercase">Kondisi Medis</Label>
+                            {/* Fallback Check */}
+                            <p className="font-medium text-slate-800 mt-1">{data.condition || data.medical_condition || "Tidak ada keterangan"}</p>
+                        </div>
+                        
+                        <div className="space-y-3 pt-2 border-t border-slate-100">
+                            <div className="relative pl-4 border-l-2 border-slate-200">
+                                <span className="absolute -left-[5px] top-1 h-2 w-2 rounded-full bg-emerald-500"></span>
+                                <Label className="text-xs text-slate-500">Jemput</Label>
+                                <p className="text-sm font-medium text-slate-900">{data.pickup_address}</p>
+                            </div>
+                            <div className="relative pl-4 border-l-2 border-slate-200">
+                                <span className="absolute -left-[5px] top-1 h-2 w-2 rounded-full bg-red-500"></span>
+                                <Label className="text-xs text-slate-500">Tujuan</Label>
+                                <p className="text-sm font-medium text-slate-900">{data.destination}</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div className="px-6 py-4 border-t bg-slate-50 flex justify-end"><Button onClick={onClose} variant="outline">Tutup</Button></div>
@@ -692,25 +750,105 @@ function RequestDetailModal({ data, onClose }: { data: AmbulanceRequest; onClose
 }
 
 function ManualBookingModal({ isOpen, onClose, onSuccess }: { isOpen: boolean, onClose: () => void, onSuccess: () => void }) {
-    const [formData, setFormData] = useState({ patient_name: "", patient_phone: "", patient_age: "", patient_gender: "male", condition: "", pickup_address: "", destination: "", landmark: "", contact_person: "", notes: "", request_type: "urgent", scheduled_date: "" })
+    // Gunakan scheduled_datetime untuk input datetime-local
+    const [scheduledDatetime, setScheduledDatetime] = useState("")
+    const [formData, setFormData] = useState({ 
+        patient_name: "", patient_phone: "", patient_age: "", patient_gender: "male", 
+        medical_condition: "", // Form state
+        pickup_address: "", destination: "", landmark: "", contact_person: "", 
+        notes: "", request_type: "urgent" 
+    })
     const [loading, setLoading] = useState(false)
+    
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault(); setLoading(true);
         try {
-            const payload: AmbulanceRequestPayload = { ...formData, request_type: formData.request_type as "urgent" | "scheduled", patient_age: parseInt(formData.patient_age) || 0, scheduled_date: formData.request_type === 'urgent' ? undefined : formData.scheduled_date };
-            await AmbulanceService.create(payload); toast.success("Booking berhasil!"); onSuccess(); onClose();
+            const payload: AmbulanceRequestPayload = { 
+                ...formData, 
+                // MAP FORM STATE KE FIELD API 'condition'
+                medical_condition: formData.medical_condition,
+                request_type: formData.request_type as "urgent" | "scheduled", 
+                patient_age: parseInt(formData.patient_age) || 0, 
+            };
+
+            // Handle Schedule Logic (Pisahkan Date & Time)
+            if (formData.request_type === 'scheduled' && scheduledDatetime) {
+                const [datePart, timePart] = scheduledDatetime.split('T')
+                payload.scheduled_date = datePart
+                if(timePart) {
+                    payload.notes = `[JAM JEMPUT: ${timePart}] ${formData.notes}`
+                }
+            } else {
+                delete payload.scheduled_date
+            }
+
+            await AmbulanceService.create(payload); 
+            toast.success("Booking berhasil!"); 
+            onSuccess(); 
+            onClose();
         } catch (error) { toast.error("Gagal membuat booking"); } finally { setLoading(false); }
     }
+
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
                 <DialogHeader className="border-b pb-4"><DialogTitle>Booking Manual Ambulance</DialogTitle></DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4 pt-4">
-                    <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded border border-slate-100"><div className="space-y-1"><Label>Tipe Layanan</Label><Select onValueChange={v=>setFormData({...formData, request_type: v})} defaultValue="urgent"><SelectTrigger className="bg-white"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="urgent">Urgent (Sekarang)</SelectItem><SelectItem value="scheduled">Terjadwal</SelectItem></SelectContent></Select></div>{formData.request_type === 'scheduled' && (<div className="space-y-1"><Label>Tanggal</Label><Input type="date" className="bg-white" value={formData.scheduled_date} onChange={e=>setFormData({...formData, scheduled_date: e.target.value})} required/></div>)}</div>
-                    <div className="grid grid-cols-2 gap-4"><div className="space-y-1"><Label>Nama Pasien</Label><Input value={formData.patient_name} onChange={e=>setFormData({...formData, patient_name: e.target.value})} required/></div><div className="space-y-1"><Label>No HP</Label><Input value={formData.patient_phone} onChange={e=>setFormData({...formData, patient_phone: e.target.value})} required/></div></div>
-                    <div className="grid grid-cols-2 gap-4"><div className="space-y-1"><Label>Usia</Label><Input type="number" value={formData.patient_age} onChange={e=>setFormData({...formData, patient_age: e.target.value})} required/></div><div className="space-y-1"><Label>Gender</Label><Select onValueChange={v=>setFormData({...formData, patient_gender: v})} defaultValue="male"><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="male">Laki-laki</SelectItem><SelectItem value="female">Perempuan</SelectItem></SelectContent></Select></div></div>
-                    <div className="space-y-1"><Label>Kondisi Medis</Label><Textarea className="h-20" placeholder="Contoh: Patah tulang..." value={formData.condition} onChange={e=>setFormData({...formData, condition: e.target.value})} required/></div>
-                    <div className="space-y-3 border-t pt-4"><div className="space-y-1"><Label className="text-emerald-600 font-bold">Lokasi Jemput</Label><Textarea className="h-16" value={formData.pickup_address} onChange={e=>setFormData({...formData, pickup_address: e.target.value})} required/></div><div className="space-y-1"><Label className="text-slate-600 font-bold">Tujuan</Label><Input value={formData.destination} onChange={e=>setFormData({...formData, destination: e.target.value})} required/></div></div>
+                    <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded border border-slate-100">
+                        <div className="space-y-1">
+                            <Label>Tipe Layanan</Label>
+                            <Select onValueChange={v=>setFormData({...formData, request_type: v})} defaultValue="urgent">
+                                <SelectTrigger className="bg-white"><SelectValue/></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="urgent">Urgent (Sekarang)</SelectItem>
+                                    <SelectItem value="scheduled">Terjadwal</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        {formData.request_type === 'scheduled' && (
+                            <div className="space-y-1">
+                                <Label>Waktu Penjemputan</Label>
+                                {/* Input datetime-local untuk admin */}
+                                <Input 
+                                    type="datetime-local" 
+                                    className="bg-white" 
+                                    value={scheduledDatetime} 
+                                    onChange={e=>setScheduledDatetime(e.target.value)} 
+                                    required
+                                />
+                            </div>
+                        )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1"><Label>Nama Pasien</Label><Input value={formData.patient_name} onChange={e=>setFormData({...formData, patient_name: e.target.value})} required/></div>
+                        <div className="space-y-1"><Label>No HP</Label><Input value={formData.patient_phone} onChange={e=>setFormData({...formData, patient_phone: e.target.value})} required/></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1"><Label>Usia</Label><Input type="number" value={formData.patient_age} onChange={e=>setFormData({...formData, patient_age: e.target.value})} required/></div>
+                        <div className="space-y-1">
+                            <Label>Gender</Label>
+                            <Select onValueChange={v=>setFormData({...formData, patient_gender: v})} defaultValue="male">
+                                <SelectTrigger><SelectValue/></SelectTrigger>
+                                <SelectContent><SelectItem value="male">Laki-laki</SelectItem><SelectItem value="female">Perempuan</SelectItem></SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    
+                    <div className="space-y-1">
+                        <Label>Kondisi Medis</Label>
+                        <Textarea 
+                            className="h-20" 
+                            placeholder="Contoh: Patah tulang..." 
+                            value={formData.medical_condition} 
+                            onChange={e=>setFormData({...formData, medical_condition: e.target.value})} 
+                            required
+                        />
+                    </div>
+                    
+                    <div className="space-y-3 border-t pt-4">
+                        <div className="space-y-1"><Label className="text-emerald-600 font-bold">Lokasi Jemput</Label><Textarea className="h-16" value={formData.pickup_address} onChange={e=>setFormData({...formData, pickup_address: e.target.value})} required/></div>
+                        <div className="space-y-1"><Label className="text-slate-600 font-bold">Tujuan</Label><Input value={formData.destination} onChange={e=>setFormData({...formData, destination: e.target.value})} required/></div>
+                    </div>
                     <div className="space-y-1"><Label>Penanggung Jawab</Label><Input value={formData.contact_person} onChange={e=>setFormData({...formData, contact_person: e.target.value})} required/></div>
                     <DialogFooter className="bg-slate-50 -mx-6 -mb-6 p-4 border-t border-slate-100 mt-6"><Button type="button" variant="outline" onClick={onClose}>Batal</Button><Button type="submit" className="bg-emerald-600 text-white hover:bg-emerald-700" disabled={loading}>Simpan Booking</Button></DialogFooter>
                 </form>
@@ -729,11 +867,11 @@ function ManageFleetModal({ isOpen, onClose, initialData, onSuccess }: { isOpen:
     }
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-md font-sans">
                 <DialogHeader className="border-b pb-4"><DialogTitle>{initialData ? "Edit Armada" : "Tambah Armada Baru"}</DialogTitle></DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4 pt-4">
                     <div className="space-y-1"><Label>Nama Unit</Label><Input placeholder="Cth: Ambulance 01 (APV)" value={formData.name} onChange={e=>setFormData({...formData, name: e.target.value})} required/></div>
-                    <div className="grid grid-cols-2 gap-4"><div className="space-y-1"><Label>Plat Nomor</Label><Input placeholder="DK ...." value={formData.plate_number} onChange={e=>setFormData({...formData, plate_number: e.target.value})} required/></div><div className="space-y-1"><Label>Status Awal</Label><Select value={formData.status} onValueChange={v=>setFormData({...formData, status: v})}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="available">Tersedia</SelectItem><SelectItem value="busy">Sedang Tugas</SelectItem><SelectItem value="maintenance">Perbaikan</SelectItem></SelectContent></Select></div></div>
+                    <div className="grid grid-cols-2 gap-4"><div className="space-y-1"><Label>Plat Nomor</Label><Input placeholder="DK ...." value={formData.plate_number} onChange={e=>setFormData({...formData, plate_number: e.target.value})} required/></div><div className="space-y-1"><Label>Status Awal</Label><Select value={formData.status} onValueChange={v=>setFormData({...formData, status: v})}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent className="font-sans"><SelectItem value="available">Tersedia</SelectItem><SelectItem value="busy">Sedang Tugas</SelectItem><SelectItem value="maintenance">Perbaikan</SelectItem></SelectContent></Select></div></div>
                     <div className="space-y-1"><Label>Fasilitas</Label><Textarea className="h-24" placeholder="Oksigen, Tandu..." value={formData.facilities} onChange={e=>setFormData({...formData, facilities: e.target.value})}/></div>
                     <DialogFooter className="bg-slate-50 -mx-6 -mb-6 p-4 border-t border-slate-100 mt-6"><Button type="button" variant="outline" onClick={onClose}>Batal</Button><Button type="submit" disabled={loading} className="bg-emerald-600 text-white hover:bg-emerald-700">Simpan Data</Button></DialogFooter>
                 </form>
