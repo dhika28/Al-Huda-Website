@@ -6,7 +6,9 @@ import {
   Save, Loader2, Key, Camera, AlertTriangle,
   Eye, EyeOff, X, Calendar, Activity, 
   Wallet, HeartHandshake, History as HistoryIcon,
-  ArrowLeft, ChevronLeft, ChevronRight, LogOut 
+  ArrowLeft, ChevronLeft, ChevronRight, LogOut,
+  Filter, // Icon Filter
+  Beef
 } from "lucide-react"
 import { toast, Toaster } from "react-hot-toast"
 
@@ -20,6 +22,9 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+// Import Select dari Shadcn UI (Pastikan komponen ini ada di project Anda)
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
 import Link from "next/link"
 import { useRouter } from "next/navigation" 
 
@@ -55,7 +60,10 @@ export default function UserProfilePage() {
 
   const [userActivities, setUserActivities] = useState<any[]>([])
   const [loadingActivities, setLoadingActivities] = useState(true)
+  
+  // --- STATE FILTER & SORT ---
   const [activeActivityType, setActiveActivityType] = useState<"donasi" | "zakat" | "qurban">("donasi")
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "highest" | "lowest">("newest")
 
   // --- PAGINATION STATE ---
   const [currentPage, setCurrentPage] = useState(1)
@@ -128,13 +136,11 @@ export default function UserProfilePage() {
     
     try {
         const uid = profile.id;
-        // Pastikan Base URL sesuai backend Anda
         const API_BASE = "http://localhost:8080/api/v1"; 
 
         const [resDonasi, resZakat, resQurban] = await Promise.all([
             fetch(`${API_BASE}/user-donations?user_id=${uid}`, { credentials: "include" }),
             fetch(`${API_BASE}/zakat?user_id=${uid}`, { credentials: "include" }),
-            // Ini endpoint Qurban yang benar (sesuai lib/api anda)
             fetch(`${API_BASE}/qurban/history?user_id=${uid}`, { credentials: "include" })
         ]);
 
@@ -142,28 +148,17 @@ export default function UserProfilePage() {
         const zakatData = resZakat.ok ? await resZakat.json() : [];
         const qurbanData = resQurban.ok ? await resQurban.json() : [];
 
-        // console.log("DEBUG QURBAN:", qurbanData);
-
-        // Helper Mapping yang Kuat (Handle Huruf Besar/Kecil dari Backend)
         const mapItem = (item: any, type: string, titleKey: string) => {
             const id = item.id || item.ID || Math.random();
-            
-            // Cek Key Title (Go PascalCase vs JS camelCase)
             let title = item[titleKey]; 
             if (!title && titleKey === 'program_name') title = item.ProgramName;
             if (!title && titleKey === 'zakat_type') title = item.ZakatType;
-            if (!title && titleKey === 'package_name') title = item.PackageName; // Penting untuk Qurban
+            if (!title && titleKey === 'package_name') title = item.PackageName;
 
-            // Fallback Title
             if (!title) title = (type === 'donasi' ? 'Donasi Umum' : type === 'zakat' ? 'Zakat' : 'Qurban');
 
-            // Cek Amount (amount / price / Price / Amount)
             const amount = Number(item.amount || item.Amount || item.price || item.Price || 0);
-
-            // Cek Date
             const created_at = item.created_at || item.CreatedAt || new Date().toISOString();
-
-            // Cek Status
             const status = item.status || item.Status || "pending";
 
             return { id, type, title, amount, created_at, status };
@@ -176,7 +171,7 @@ export default function UserProfilePage() {
             })) : []),
             ...(Array.isArray(zakatData) ? zakatData.map((z:any) => mapItem(z, 'zakat', 'zakat_type')) : []),
             ...(Array.isArray(qurbanData) ? qurbanData.map((q:any) => mapItem(q, 'qurban', 'package_name')) : [])
-        ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        ];
 
         setUserActivities(all);
 
@@ -190,15 +185,16 @@ export default function UserProfilePage() {
   // --- USE EFFECTS ---
   useEffect(() => { 
       fetchProfileData() 
-  }, []) // Run sekali saat mount
+  }, []) 
 
   useEffect(() => { 
       if(profile.id) fetchActivities() 
-  }, [profile.id]) // Run kalau ID user sudah dapat
+  }, [profile.id])
   
+  // Reset pagination saat filter berubah
   useEffect(() => {
     setCurrentPage(1)
-  }, [activeActivityType])
+  }, [activeActivityType, sortOrder])
 
   // 3. HANDLER FILE
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -288,14 +284,12 @@ export default function UserProfilePage() {
     ), { duration: 5000, position: "top-center" })
   }
 
-  // 5. UPDATE PASSWORD (LOGIC FIXED)
+  // 5. UPDATE PASSWORD
   const executeChangePassword = async () => {
     setIsSavingPassword(true)
     const toastId = toast.loading("Mengenkripsi password baru...")
     
     try {
-        // PERBAIKAN: Gunakan endpoint /me/password agar ID diambil dari Token
-        // Ini menjamin update ke user yang benar
         const res = await fetch("http://localhost:8080/me/password", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -308,12 +302,8 @@ export default function UserProfilePage() {
             throw new Error(errText || "Gagal update password");
         }
         
-        // Success Handler
         toast.success("Sukses! Password berhasil diganti. Silakan login ulang.", { id: toastId, duration: 3000 })
         setPasswords({ current: "", new: "", confirm: "" })
-        
-        // Opsional: Logout otomatis agar user login pakai password baru
-        // setTimeout(() => executeLogout(), 2000); 
 
     } catch (error: any) {
         console.error("Pass error:", error);
@@ -323,11 +313,9 @@ export default function UserProfilePage() {
     }
   }
 
-  // 5. UPDATE PASSWORD (UI & VALIDASI)
   const onPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Validasi
     if (!passwords.new || passwords.new.length < 6) {
         return toast.error("Password minimal 6 karakter")
     }
@@ -335,7 +323,6 @@ export default function UserProfilePage() {
         return toast.error("Konfirmasi password tidak cocok")
     }
 
-    // Toast Konfirmasi
     toast((t) => (
       <div className="flex flex-col gap-3 min-w-[250px]">
         <div className="flex items-center gap-2 font-semibold text-gray-800">
@@ -359,7 +346,7 @@ export default function UserProfilePage() {
     ), { duration: 5000, position: "top-center" })
   }
 
-  // --- NEW: LOGIC LOGOUT ---
+  // --- LOGIC LOGOUT ---
   const executeLogout = async () => {
     const toastId = toast.loading("Sedang keluar...")
     try {
@@ -405,10 +392,25 @@ export default function UserProfilePage() {
       ), { duration: 5000, position: "top-center" })
   }
 
-  // --- LOGIC PAGINATION ---
-  const filteredHistory = userActivities.filter(a => a.type === activeActivityType)
-  const totalPages = Math.ceil(filteredHistory.length / itemsPerPage)
-  const currentHistoryItems = filteredHistory.slice(
+  // --- LOGIC SORT & PAGINATION ---
+  const filteredAndSortedHistory = userActivities
+    .filter(a => a.type === activeActivityType)
+    .sort((a, b) => {
+      // Logic Sort
+      if (sortOrder === "newest") {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      } else if (sortOrder === "oldest") {
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      } else if (sortOrder === "highest") {
+        return b.amount - a.amount
+      } else if (sortOrder === "lowest") {
+        return a.amount - b.amount
+      }
+      return 0
+    })
+
+  const totalPages = Math.ceil(filteredAndSortedHistory.length / itemsPerPage)
+  const currentHistoryItems = filteredAndSortedHistory.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   )
@@ -455,6 +457,7 @@ export default function UserProfilePage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
+          {/* KOLOM KIRI (PROFIL) - Tidak Berubah */}
           <div className="lg:col-span-4 h-full">
             <Card className="border-none shadow-xl rounded-2xl overflow-hidden h-full">
               <div className="h-36 bg-emerald-600 relative"></div>
@@ -555,6 +558,7 @@ export default function UserProfilePage() {
                   </TabsTrigger>
               </TabsList>
 
+              {/* TAB EDIT PROFILE - Tidak Berubah */}
               <TabsContent value="edit">
                   <Card className="border-none shadow-xl rounded-2xl">
                       <CardHeader className="pb-4 border-b border-gray-100 px-8 pt-8">
@@ -597,6 +601,7 @@ export default function UserProfilePage() {
                   </Card>
               </TabsContent>
 
+              {/* TAB SECURITY - Tidak Berubah */}
               <TabsContent value="security">
                   <Card className="border-none shadow-xl rounded-2xl">
                       <CardHeader className="pb-4 border-b border-gray-100 px-8 pt-8">
@@ -638,29 +643,54 @@ export default function UserProfilePage() {
                   </Card>
               </TabsContent>
 
+              {/* TAB HISTORY (AKTIVITAS) - DIPERBARUI DENGAN SORTING */}
               <TabsContent value="history">
                   <Card className="border-none shadow-xl rounded-2xl flex flex-col min-h-[500px]">
                       <CardHeader className="pb-4 border-b border-gray-100 px-8 pt-8">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
                               <div>
                                   <CardTitle className="text-xl font-bold text-gray-900">Riwayat Transaksi</CardTitle>
                                   <CardDescription>Catatan donasi, zakat, dan qurban Anda.</CardDescription>
                               </div>
                               
-                              <div className="flex bg-gray-100 p-1 rounded-lg">
-                                  {["donasi", "zakat", "qurban"].map((type) => (
-                                      <button
-                                          key={type}
-                                          onClick={() => setActiveActivityType(type as any)}
-                                          className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all uppercase tracking-wide ${
-                                              activeActivityType === type 
-                                              ? "bg-white text-emerald-700 shadow-sm" 
-                                              : "text-gray-500 hover:text-gray-700"
-                                          }`}
-                                      >
-                                          {type}
-                                      </button>
-                                  ))}
+                              <div className="flex flex-col sm:flex-row gap-3">
+                                {/* Filter Tipe Aktivitas */}
+                                <div className="flex bg-gray-100 p-1 rounded-lg">
+                                    {["donasi", "zakat", "qurban"].map((type) => (
+                                        <button
+                                            key={type}
+                                            onClick={() => setActiveActivityType(type as any)}
+                                            className={`px-4 py-2 text-xs font-semibold rounded-md transition-all uppercase tracking-wide ${
+                                                activeActivityType === type 
+                                                ? "bg-white text-emerald-700 shadow-sm" 
+                                                : "text-gray-500 hover:text-gray-700"
+                                            }`}
+                                        >
+                                            {type}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Filter Sorting (Dropdown) */}
+                                <div className="w-full sm:w-48">
+                                    <Select 
+                                        value={sortOrder} 
+                                        onValueChange={(val: any) => setSortOrder(val)}
+                                    >
+                                        <SelectTrigger className="bg-white border-gray-200 h-10 text-sm">
+                                            <div className="flex items-center gap-2 text-gray-600">
+                                                <Filter className="h-3.5 w-3.5" />
+                                                <SelectValue placeholder="Urutkan" />
+                                            </div>
+                                        </SelectTrigger>
+                                        <SelectContent align="end" className="w-48">
+                                            <SelectItem value="newest">Terbaru</SelectItem>
+                                            <SelectItem value="oldest">Terlama</SelectItem>
+                                            <SelectItem value="highest">Nominal Terbanyak</SelectItem>
+                                            <SelectItem value="lowest">Nominal Sedikit</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                               </div>
                           </div>
                       </CardHeader>
@@ -670,7 +700,7 @@ export default function UserProfilePage() {
                               <div className="p-12 text-center text-gray-400">
                                   <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2"/> Memuat data...
                               </div>
-                          ) : filteredHistory.length === 0 ? (
+                          ) : filteredAndSortedHistory.length === 0 ? (
                               <div className="p-16 text-center">
                                   <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3">
                                       <Activity className="h-8 w-8 text-gray-300" />
@@ -679,7 +709,6 @@ export default function UserProfilePage() {
                               </div>
                           ) : (
                               <div className="divide-y divide-gray-100">
-                                  {/* RENDER DATA PAGINATION */}
                                   {currentHistoryItems.map((item) => (
                                       <div key={item.id} className="p-6 flex items-center justify-between hover:bg-gray-50 transition-colors group">
                                           <div className="flex items-center gap-4">
@@ -688,7 +717,7 @@ export default function UserProfilePage() {
                                                   item.type === 'zakat' ? 'bg-blue-100 text-blue-600' : 'bg-yellow-100 text-yellow-600'
                                               }`}>
                                                   {item.type === 'donasi' ? <HeartHandshake className="h-5 w-5"/> : 
-                                                   item.type === 'zakat' ? <Wallet className="h-5 w-5"/> : <Activity className="h-5 w-5" />}
+                                                   item.type === 'zakat' ? <Wallet className="h-5 w-5"/> : <Beef  className="h-5 w-5" />}
                                               </div>
                                               <div>
                                                   <p className="font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">{item.title}</p>
@@ -713,7 +742,7 @@ export default function UserProfilePage() {
                           )}
                       </CardContent>
 
-                      {filteredHistory.length > 0 && (
+                      {filteredAndSortedHistory.length > 0 && (
                         <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex justify-between items-center rounded-b-2xl">
                             <Button 
                                 variant="outline" 

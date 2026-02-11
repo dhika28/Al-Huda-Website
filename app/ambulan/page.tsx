@@ -34,7 +34,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 
-// --- PENTING: MENGGUNAKAN LIBRARY YANG SAMA DENGAN AUTH PAGE ANDA ---
+// --- 1. IMPORT TOAST ---
 import { toast, Toaster } from "react-hot-toast"
 
 import { AmbulanceService } from "@/lib/api/ambulance"
@@ -69,43 +69,64 @@ export default function AmbulanPage() {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
-  // --- LOGIC UTAMA ---
+  // Helper untuk mendapatkan waktu saat ini (untuk atribut min pada input)
+  const getCurrentDateTime = () => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset()); 
+    return now.toISOString().slice(0, 16);
+  };
+
+  // --- 2. LOGIC UTAMA DENGAN TOAST ---
   const handleProcess = async () => {
-    // 1. VALIDASI
+    // A. Validasi Tipe Layanan
     if (!requestType) {
       toast.error("Mohon pilih jenis layanan (Mendesak / Terjadwal)")
       return
     }
 
+    // B. Validasi Kelengkapan Data
     if (
-      !form.patient_name ||
-      !form.patient_phone ||
-      !form.pickup_address ||
-      !form.destination ||
+      !form.patient_name.trim() ||
+      !form.patient_phone.trim() ||
+      !form.pickup_address.trim() ||
+      !form.destination.trim() ||
       !form.patient_gender ||
       !form.patient_age
     ) {
-      toast.error("Data belum lengkap! Cek Nama, Telp, Alamat, dll.")
+      toast.error("Mohon lengkapi data pasien (Nama, HP, Alamat, Tujuan, dll)")
       return
     }
 
-    if (requestType === "scheduled" && !form.scheduled_date) {
-      toast.error("Tanggal penjemputan wajib diisi")
-      return
+    // C. Validasi Khusus Terjadwal
+    if (requestType === "scheduled") {
+        if (!form.scheduled_date) {
+            toast.error("Tanggal & Jam penjemputan wajib diisi")
+            return
+        }
+
+        // Cek Waktu Lampau
+        const selectedDate = new Date(form.scheduled_date)
+        const now = new Date()
+
+        if (selectedDate.getTime() < now.getTime()) {
+            toast.error("Waktu penjemputan tidak valid! Waktu sudah terlewat.")
+            return 
+        }
     }
 
-    // 2. KIRIM KE SERVER
+    // D. Kirim ke Server
     const loadingToast = toast.loading("Mengirim permintaan...")
     setLoading(true)
 
     try {
       const payload: any = {
         ...form,
+        condition: form.medical_condition, // Map field medical_condition ke condition
         request_type: requestType,
         patient_age: Number(form.patient_age),
       }
 
-      // Format Tanggal YYYY-MM-DD
+      // Format Tanggal & Jam
       if (requestType === "scheduled" && form.scheduled_date) {
         const parts = form.scheduled_date.split("T")
         if (parts.length >= 1) payload.scheduled_date = parts[0]
@@ -116,9 +137,9 @@ export default function AmbulanPage() {
 
       await AmbulanceService.create(payload)
 
-      // 3. SUKSES
+      // E. Sukses
       toast.dismiss(loadingToast)
-      toast.success("Permintaan Berhasil Dikirim!", { duration: 5000 })
+      toast.success("Permintaan Berhasil Dikirim! Petugas akan segera menghubungi.", { duration: 5000 })
 
       // Reset Form
       setForm({
@@ -138,9 +159,7 @@ export default function AmbulanPage() {
     } catch (error: any) {
       console.error(error)
       toast.dismiss(loadingToast)
-      
-      const errorMsg = error?.response?.data?.error || "Gagal mengirim data. Coba lagi.";
-      toast.error(errorMsg)
+      toast.error(error?.response?.data?.error || "Gagal mengirim data. Silakan coba lagi.")
     } finally {
       setLoading(false)
     }
@@ -149,7 +168,7 @@ export default function AmbulanPage() {
   const serviceTypes = [
     {
       id: "urgent",
-      title: "Mendesak",
+      title: "Mendesak (Emergency)",
       icon: <Activity className="h-6 w-6" />,
       color: "bg-orange-500",
       bgHover: "hover:border-orange-300",
@@ -158,7 +177,7 @@ export default function AmbulanPage() {
     },
     {
       id: "scheduled",
-      title: "Terjadwal",
+      title: "Terjadwal / Kontrol",
       icon: <Calendar className="h-6 w-6" />,
       color: "bg-blue-500",
       bgHover: "hover:border-blue-300",
@@ -169,7 +188,7 @@ export default function AmbulanPage() {
 
   return (
     <div className="min-h-screen bg-slate-50/50 font-sans pb-10">
-      {/* TOASTER DARI REACT-HOT-TOAST (PASTI MUNCUL) */}
+      {/* --- 3. TOASTER COMPONENT --- */}
       <Toaster position="top-center" reverseOrder={false} />
 
       {/* HEADER */}
@@ -238,8 +257,10 @@ export default function AmbulanPage() {
                   <Input
                     type="datetime-local"
                     className="mt-2 bg-white"
+                    min={getCurrentDateTime()} // Prevent past dates via UI
                     onChange={(e) => handleChange("scheduled_date", e.target.value)}
                   />
+                  <p className="text-[10px] text-blue-600 mt-1 italic">* Pastikan memilih tanggal dan jam yang akan datang.</p>
                 </div>
               )}
 
@@ -307,6 +328,7 @@ export default function AmbulanPage() {
               {/* 3. LOKASI */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2 mb-2">
+                 
                   <Label className="text-base font-semibold">Lokasi & Tujuan</Label>
                 </div>
 
@@ -322,7 +344,7 @@ export default function AmbulanPage() {
 
                 <div className="space-y-2">
                   <Label className="flex items-center gap-1">
-                    Patokan
+                    Patokan / Landmark
                     <span className="text-xs text-muted-foreground font-normal">(Agar driver mudah menemukan lokasi)</span>
                   </Label>
                   <Input 
@@ -376,7 +398,7 @@ export default function AmbulanPage() {
                   "Mengirim Data..."
                 ) : (
                   <>
-                    Kirim Permintaan
+                    Kirim Permintaan <Send className="ml-2 h-4 w-4" />
                   </>
                 )}
               </Button>

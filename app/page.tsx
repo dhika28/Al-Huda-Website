@@ -14,6 +14,7 @@ import {
   HandHeart,
   ChevronRight,
   LogOut,
+  Beef,
 } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
@@ -133,7 +134,7 @@ export default function HomePage() {
       href: "/zakat",
     },
     {
-      icon: <GiCow className="h-12 w-12" />,
+      icon: <Beef  className="h-12 w-12" />,
       title: "Pendaftaran Qurban",
       description: "Daftar qurban untuk Idul Adha dengan pilihan hewan terbaik",
       color: "bg-orange-500",

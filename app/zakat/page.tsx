@@ -12,8 +12,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Progress } from "@/components/ui/progress"
 
-import { toast } from "@/components/ui/use-toast"
-// Import API Zakat - DITAMBAHKAN: getDistributionLogs
+// --- GANTI IMPORT TOAST AGAR SERAGAM DENGAN DONASI PAGE ---
+import { toast, Toaster } from "react-hot-toast"
+
+// Import API Zakat
 import { 
   createZakatPayment, 
   getZakatDistribution, 
@@ -29,7 +31,7 @@ declare global {
   }
 }
 
-// Helper User ID (Kita buat lebih santai, kalau null ya null aja)
+// Helper User ID
 function getUserIdFromCookie() {
   if (typeof document === "undefined") return null;
   const match = document.cookie.match(/user_id=(\d+)/);
@@ -56,17 +58,15 @@ export default function ZakatPage() {
   const [distributionStats, setDistributionStats] = useState<ZakatDistributionItem[]>([])
   const [totalZakatPool, setTotalZakatPool] = useState(0)
 
-  // --- FETCH DATA (DIPERBAIKI: HITUNG PENERIMA DARI LOG) ---
+  // --- FETCH DATA ---
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // 1. Ambil Data Distribusi (Pagu & Persentase) DAN Logs (Riwayat Nyata)
         const [distData, logsData] = await Promise.all([
             getZakatDistribution(),
-            getDistributionLogs().catch(() => []) // Fallback array kosong jika error
+            getDistributionLogs().catch(() => [])
         ])
 
-        // 2. Hitung Total Penerima per Kategori dari Logs
         const logs = Array.isArray(logsData) ? logsData : []
         const recipientMap: Record<number, number> = {}
 
@@ -76,10 +76,8 @@ export default function ZakatPage() {
             recipientMap[catId] = (recipientMap[catId] || 0) + count
         })
 
-        // 3. Gabungkan Data: Masukkan hitungan log ke dalam state
         const mergedData = distData.distribution.map((item: any) => ({
             ...item,
-            // Override 'recipients' (yang tadinya estimasi sisa) dengan 'recipientMap' (total tersalurkan)
             recipients: recipientMap[item.id] || 0
         }))
 
@@ -112,39 +110,45 @@ export default function ZakatPage() {
     setPaymentForm({ ...paymentForm, extraNames: updated })
   }
 
-  // --- LOGIC SUBMIT (DEBUG MODE) ---
+  // --- LOGIC SUBMIT (DIPERBAIKI VALIDASINYA) ---
   const handlePaymentSubmit = async (e: React.FormEvent) => {
-    e.preventDefault() // <--- HARUS ADA
-    console.log("👉 TOMBOL DIKLIK! Masuk fungsi submit...")
+    e.preventDefault()
 
-    // 1. Validasi Form Manual
-    if (!paymentForm.name.trim()) { alert("Nama wajib diisi"); return; }
-    if (!paymentForm.email.trim()) { alert("Email wajib diisi"); return; }
-    if (paymentForm.amount <= 0) { alert("Nominal tidak valid"); return; }
+    // 1. VALIDASI DATA DIRI (Menggunakan Toast)
+    if (!paymentForm.name.trim()) { 
+        toast.error("Nama lengkap wajib diisi")
+        return 
+    }
+    if (!paymentForm.email.trim()) { 
+        toast.error("Email wajib diisi untuk bukti pembayaran")
+        return 
+    }
+    if (!paymentForm.phone.trim()) { 
+        toast.error("Nomor telepon wajib diisi")
+        return 
+    }
+    if (paymentForm.amount <= 0) { 
+        toast.error("Nominal zakat tidak valid")
+        return 
+    }
 
-    // 2. Cek User ID (JIKA NULL, KITA LANJUT AJA BIAR GAK MACET)
+    // 2. Cek User ID
     let userId = getUserIdFromCookie();
-    console.log("🔍 User ID dari Cookie:", userId);
-    
-    // Fallback: Kalau cookie gak kebaca (null), kita kirim 0 atau undefined
-    // Biarkan Backend yang nolak kalau emang wajib login
     if (!userId) {
-        console.warn("⚠️ User ID tidak ditemukan di Cookie (Mungkin HTTPOnly). Lanjut request...");
-        userId = 0; 
+        userId = 0; // Fallback untuk user guest
     }
 
     // 3. Cek Script Snap Midtrans
     if (typeof window.snap === "undefined") {
-        alert("Sistem pembayaran (Snap) belum siap. Coba refresh halaman.");
-        console.error("❌ window.snap is undefined");
+        toast.error("Sistem pembayaran belum siap. Silakan refresh halaman.")
         return;
     }
 
     setLoading(true)
-    console.log("⏳ Mengirim data ke backend...")
+    const loadingToast = toast.loading("Memproses pembayaran...")
 
     const payload: CreateZakatPaymentPayload = {
-      user_id: userId || undefined, // Kirim undefined kalau 0
+      user_id: userId || undefined,
       name: paymentForm.name.trim(),
       email: paymentForm.email.trim(),
       phone: paymentForm.phone.trim(),
@@ -158,43 +162,33 @@ export default function ZakatPage() {
 
     try {
       const res = await createZakatPayment(payload)
-      console.log("✅ Response Backend:", res)
 
-      // Cek Token
       if (!res?.token) {
-        throw new Error("Token tidak diterima dari backend.")
+        throw new Error("Gagal mendapatkan token pembayaran.")
       }
 
-      console.log("💳 Membuka Popup Midtrans...")
-
-      // 4. POPUP
+      toast.dismiss(loadingToast)
+      
+      // 4. POPUP MIDTRANS
       window.snap.pay(res.token, {
         onSuccess: function(result: any) {
-            console.log("🎉 Sukses:", result);
-            // GUNAKAN ASSIGN AGAR PAKSA RELOAD
             window.location.assign(`/payment/status?order_id=${result.order_id}&transaction_status=${result.transaction_status}&status_code=${result.status_code}`);
         },
         onPending: function(result: any) {
-            console.log("⏳ Pending:", result);
             window.location.assign(`/payment/status?order_id=${result.order_id}&transaction_status=pending&status_code=${result.status_code}`);
         },
         onError: function(result: any) {
-            console.log("💥 Error:", result);
             window.location.assign(`/payment/status?order_id=${result.order_id}&transaction_status=error&status_code=${result.status_code}`);
         },
         onClose: function() {
-            console.log("🚫 Close");
-            toast({ title: "Info", description: "Pembayaran belum diselesaikan." })
+            toast.error("Pembayaran dibatalkan/belum selesai")
         }
       })
 
     } catch (err: any) {
-      console.error("❌ Error Submit:", err)
-      toast({
-        title: "Gagal",
-        description: err?.message || "Terjadi kesalahan server",
-        variant: "destructive",
-      })
+      console.error("Error Submit:", err)
+      toast.dismiss(loadingToast)
+      toast.error(err?.message || "Terjadi kesalahan server saat memproses zakat")
     } finally {
       setLoading(false)
     }
@@ -209,6 +203,10 @@ export default function ZakatPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50/40 to-blue-50/40 font-sans">
+      
+      {/* --- TOASTER --- */}
+      <Toaster position="top-center" reverseOrder={false} />
+
       <header className="bg-white/95 backdrop-blur border-b shadow-sm sticky top-0 z-30">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center space-x-4">
@@ -248,18 +246,16 @@ export default function ZakatPage() {
                   <form onSubmit={handlePaymentSubmit} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
-                        <Label>Nama Lengkap</Label>
+                        <Label>Nama Lengkap <span className="text-red-500">*</span></Label>
                         <Input
-                          required
                           placeholder="Nama lengkap (Muzakki)"
                           value={paymentForm.name}
                           onChange={(e) => setPaymentForm({ ...paymentForm, name: e.target.value })}
                         />
                       </div>
                       <div>
-                        <Label>Email</Label>
+                        <Label>Email <span className="text-red-500">*</span></Label>
                         <Input
-                          required
                           type="email"
                           placeholder="email@example.com"
                           value={paymentForm.email}
@@ -267,9 +263,8 @@ export default function ZakatPage() {
                         />
                       </div>
                       <div>
-                        <Label>No. Telepon / WA</Label>
+                        <Label>No. Telepon / WA <span className="text-red-500">*</span></Label>
                         <Input
-                          required
                           placeholder="08xxxxxxxx"
                           value={paymentForm.phone}
                           onChange={(e) => setPaymentForm({ ...paymentForm, phone: e.target.value })}
@@ -329,7 +324,7 @@ export default function ZakatPage() {
                     <Button 
                         type="submit" 
                         disabled={loading} 
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-lg py-6"
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-lg py-6 shadow-lg shadow-emerald-100"
                     >
                       {loading ? "Sedang Memproses..." : "Bayar Zakat Sekarang"}
                     </Button>

@@ -544,7 +544,7 @@ export default function FinancialReportsPage() {
                                 ) : (
                                     paginatedData.map((t, idx) => (
                                         <tr key={idx} className="hover:bg-slate-50 transition-colors group">
-                                            <td className="px-6 py-4 whitespace-nowrap text-slate-600 font-medium font-mono text-xs">
+                                            <td className="px-6 py-4 whitespace-nowrap text-slate-600 font-medium text-xs">
                                                 {formatDateTime(t.fullDate)}
                                             </td>
                                             <td className="px-6 py-4 font-mono text-xs text-slate-500">{t.id}</td>

@@ -287,7 +287,7 @@ export default function AdminAmbulancePage() {
       {/* TOP SECTION */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900">Dispatcher Dashboard</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900">Layanan Ambulans</h2>
           <div className="flex items-center gap-2 mt-1 text-sm text-slate-500">
             <p>System Operational • {formatDateTime(new Date().toISOString())}</p>
           </div>

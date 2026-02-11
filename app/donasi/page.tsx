@@ -22,6 +22,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useDonation } from "@/contexts/donation-context"
 import DonationPopup from "@/components/formprogram"
 
+// --- 1. IMPORT TOAST ---
+import { toast, Toaster } from "react-hot-toast"
+
 export default function DonasiPageClient() {
   const donationCtx = useDonation()
 
@@ -33,7 +36,7 @@ export default function DonasiPageClient() {
   // --- STATE FORM DONASI ---
   const [selectedAmount, setSelectedAmount] = useState("")
   const [customAmount, setCustomAmount] = useState("")
-  const [paymentMethod, setPaymentMethod] = useState("")
+  const [paymentMethod, setPaymentMethod] = useState("") // Jika ada dropdown payment method nanti
   const [donor, setDonor] = useState({ name: "", phone: "", email: "", message: "" })
 
   const [openPopup, setOpenPopup] = useState(false)
@@ -41,7 +44,7 @@ export default function DonasiPageClient() {
 
   // --- STATE PAGINATION DONASI TERBARU ---
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 6 // Menampilkan 5 donasi per halaman
+  const itemsPerPage = 6 
 
   // Logika Pagination
   const indexOfLastItem = currentPage * itemsPerPage
@@ -71,10 +74,29 @@ export default function DonasiPageClient() {
 
   const getProgress = (collected: number, target: number) => (target > 0 ? Math.round((collected / target) * 100) : 0)
 
+  // --- 2. LOGIC HANDLE DONATE YANG DIPERBAIKI ---
   const handleDonate = async () => {
-    if (!selectedAmount) return alert("Lengkapi nominal dan metode pembayaran")
-    if (!donor.name || !donor.phone || !donor.email) return alert("Isi data donatur dengan lengkap")
-    if (!submitDonation) return alert("Donation service not ready")
+    // Validasi Nominal
+    if (!selectedAmount) {
+        toast.error("Tolong pilih nominal donasi")
+        return
+    }
+
+    if (selectedAmount === "custom" && !customAmount) {
+        toast.error("Tolong isi jumlah donasi lain")
+        return
+    }
+
+    // Validasi Data Diri
+    if (!donor.name || !donor.phone || !donor.email) {
+        toast.error("Tolong lengkapi data (Nama, HP, Email)")
+        return
+    }
+
+    if (!submitDonation) {
+        toast.error("Sistem donasi belum siap")
+        return
+    }
 
     const amount = selectedAmount === "custom" ? parseInt(customAmount) : parseInt(selectedAmount)
 
@@ -85,11 +107,28 @@ export default function DonasiPageClient() {
       email: donor.email,
       amount,
       message: donor.message,
-      payment_method: paymentMethod,
+      payment_method: paymentMethod || "manual", // Default manual jika kosong
       donation_type: "quick",
     }
 
-    await submitDonation(donationData)
+    // Tampilkan loading toast saat proses
+    const loadingToast = toast.loading("Memproses donasi...")
+    
+    try {
+        await submitDonation(donationData)
+        toast.dismiss(loadingToast)
+        toast.success("Donasi berhasil dibuat! Silakan lakukan pembayaran.")
+        
+        // Reset form (opsional)
+        setSelectedAmount("")
+        setCustomAmount("")
+        setDonor({ name: "", phone: "", email: "", message: "" })
+        
+    } catch (error) {
+        toast.dismiss(loadingToast)
+        // Error handling biasanya sudah di handle di context, tapi untuk jaga-jaga:
+        toast.error("Gagal memproses donasi")
+    }
   }
 
   if (!donationCtx) {
@@ -98,6 +137,9 @@ export default function DonasiPageClient() {
 
   return (
     <div className="min-h-screen bg-white font-sans">
+      {/* --- 3. TOASTER COMPONENT --- */}
+      <Toaster position="top-center" reverseOrder={false} />
+
       {openPopup && (
         <DonationPopup program={selectedProgram} onClose={() => setOpenPopup(false)} />
       )}
@@ -146,7 +188,7 @@ export default function DonasiPageClient() {
                   <CardContent className="space-y-6">
                     {/* NOMINAL */}
                     <div>
-                      <Label className="text-base font-semibold">Nominal Donasi</Label>
+                      <Label className="text-base font-semibold">Nominal Donasi <span className="text-red-500">*</span></Label>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
                         {quickAmounts.map((item) => (
                           <Button
@@ -168,7 +210,7 @@ export default function DonasiPageClient() {
                           placeholder="Masukkan jumlah donasi"
                           value={customAmount}
                           onChange={(e) => setCustomAmount(e.target.value)}
-                          className="h-12 text-lg mt-3 rounded-xl"
+                          className="h-12 text-lg mt-3 rounded-xl border-emerald-200 focus:border-emerald-500"
                         />
                       )}
                     </div>
@@ -178,21 +220,21 @@ export default function DonasiPageClient() {
                       <Label className="text-base font-semibold">Data Donatur</Label>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <Label>Nama Lengkap</Label>
-                          <Input className="rounded-xl" value={donor.name} onChange={(e) => setDonor({ ...donor, name: e.target.value })} />
+                          <Label>Nama Lengkap <span className="text-red-500">*</span></Label>
+                          <Input className="rounded-xl" value={donor.name} onChange={(e) => setDonor({ ...donor, name: e.target.value })} placeholder="Nama Anda" />
                         </div>
                         <div>
-                          <Label>Nomor Telepon</Label>
-                          <Input className="rounded-xl" value={donor.phone} onChange={(e) => setDonor({ ...donor, phone: e.target.value })} />
+                          <Label>Nomor Telepon <span className="text-red-500">*</span></Label>
+                          <Input className="rounded-xl" value={donor.phone} onChange={(e) => setDonor({ ...donor, phone: e.target.value })} placeholder="08..." />
                         </div>
                       </div>
                       <div>
-                        <Label>Email</Label>
-                        <Input type="email" className="rounded-xl" value={donor.email} onChange={(e) => setDonor({ ...donor, email: e.target.value })} />
+                        <Label>Email <span className="text-red-500">*</span></Label>
+                        <Input type="email" className="rounded-xl" value={donor.email} onChange={(e) => setDonor({ ...donor, email: e.target.value })} placeholder="email@contoh.com" />
                       </div>
                       <div>
                         <Label>Pesan (Opsional)</Label>
-                        <Textarea rows={3} className="rounded-xl" value={donor.message} onChange={(e) => setDonor({ ...donor, message: e.target.value })} />
+                        <Textarea rows={3} className="rounded-xl" value={donor.message} onChange={(e) => setDonor({ ...donor, message: e.target.value })} placeholder="Doa atau pesan khusus..." />
                       </div>
                     </div>
 
@@ -200,7 +242,7 @@ export default function DonasiPageClient() {
                     <Button
                       onClick={handleDonate}
                       disabled={isLoading}
-                      className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-lg"
+                      className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-lg shadow-emerald-100 shadow-lg"
                     >
                       {isLoading ? "Memproses..." : "Lanjutkan Donasi"}
                     </Button>

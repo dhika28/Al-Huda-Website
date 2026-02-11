@@ -17,14 +17,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/components/ui/use-toast";
+
+// --- 1. GANTI IMPORT TOAST ---
+import { toast, Toaster } from "react-hot-toast";
 
 import { useQurban } from "@/contexts/qurban-context";
 import { QurbanPackage, QurbanRegistrationInput } from "@/app/types/qurban";
 import { createQurbanRegistration } from "@/lib/api/qurban"; 
 import { GiCow, GiGoat } from "react-icons/gi";
 
-// 1. Definisi Window Snap
+// Definisi Window Snap
 declare global {
   interface Window {
     snap: any;
@@ -33,8 +35,7 @@ declare global {
 
 export default function QurbanPage() {
   const { packages, loading: loadingPackages } = useQurban();
-  const { toast } = useToast();
-
+  
   const [selectedPackage, setSelectedPackage] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   
@@ -51,7 +52,7 @@ export default function QurbanPage() {
 
   const [extraNames, setExtraNames] = useState<string[]>(Array(6).fill(""));
 
-  // 🔥 2. FETCH USER (HANYA AMBIL ID, JANGAN ISI FORM)
+  // FETCH USER
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -63,15 +64,6 @@ export default function QurbanPage() {
           if (userObj && userObj.id) {
             console.log("✅ User terdeteksi:", userObj.id);
             setCurrentUserId(userObj.id);
-            
-            // ❌ BAGIAN INI SAYA HAPUS/KOMENTAR AGAR FORM TETAP KOSONG ❌
-            // setForm(prev => ({
-            //   ...prev,
-            //   fullName: userObj.name || userObj.full_name || prev.fullName,
-            //   email: userObj.email || prev.email,
-            //   phone: userObj.phone || prev.phone,
-            //   address: userObj.address || prev.address
-            // }));
           }
         }
       } catch (err) {
@@ -113,23 +105,33 @@ export default function QurbanPage() {
   const participantTotal = pkg?.participants ?? 1;
   const isSapi = participantTotal === 7;
 
-  // 3. Logic Submit
+  // --- 2. LOGIC SUBMIT DENGAN TOAST ---
   const submitForm = async () => {
-    if (!pkg) return alert("Pilih paket terlebih dahulu.");
-    if (!form.fullName || !form.email || !form.phone) return alert("Lengkapi data diri.");
-
-    if (!currentUserId) {
-       const proceed = confirm("Anda belum login. Transaksi ini tidak akan tercatat di riwayat akun Anda. Lanjutkan?");
-       if (!proceed) return;
+    // Validasi Paket
+    if (!pkg) {
+        toast.error("Silakan pilih paket qurban terlebih dahulu");
+        return;
     }
 
+    // Validasi Data Diri
+    if (!form.fullName.trim() || !form.email.trim() || !form.phone.trim()) {
+        toast.error("Mohon lengkapi data diri (Nama, Email, No. HP)");
+        return;
+    }
+
+    if (!form.address.trim()) {
+        toast.error("Mohon lengkapi alamat pengirim");
+        return;
+    }
+
+    // Cek Snap
     if (typeof window.snap === "undefined") {
-        alert("Sistem pembayaran belum siap. Silakan refresh halaman.");
+        toast.error("Sistem pembayaran belum siap. Silakan refresh halaman.");
         return;
     }
 
     const payload: QurbanRegistrationInput = {
-        user_id: currentUserId || 0, 
+        user_id: currentUserId || 0, // 0 jika guest
         package_id: pkg.id,
         name: form.fullName,
         phone: form.phone,
@@ -137,44 +139,43 @@ export default function QurbanPage() {
         address: form.address,
         notes: form.notes,
         participant_count: participantTotal,
-        extra_names: isSapi ? extraNames : [],
+        extra_names: isSapi ? extraNames.filter(Boolean) : [], // Filter nama kosong
     };
 
-    console.log("📤 Mengirim Payload Qurban:", payload);
+    setLoading(true);
+    const loadingToast = toast.loading("Memproses pendaftaran qurban...");
 
     try {
-        setLoading(true);
-
         const res = await createQurbanRegistration(payload);
-        console.log("📥 Response Backend:", res);
 
         if (!res?.token) {
             throw new Error("Gagal mendapatkan token pembayaran.");
         }
 
+        toast.dismiss(loadingToast);
+
+        // Buka Snap
         window.snap.pay(res.token, {
             onSuccess: function(result: any) {
-                console.log("✅ Sukses:", result);
                 resetForm(); 
                 window.location.assign(`/payment/status?order_id=${result.order_id}&transaction_status=${result.transaction_status}&status_code=${result.status_code}`);
             },
             onPending: function(result: any) {
-                console.log("⏳ Pending:", result);
                 resetForm(); 
                 window.location.assign(`/payment/status?order_id=${result.order_id}&transaction_status=${result.transaction_status}&status_code=${result.status_code}`);
             },
             onError: function(result: any) {
-                console.log("❌ Error:", result);
                 window.location.assign(`/payment/status?order_id=${result.order_id}&transaction_status=error&status_code=${result.status_code}`);
             },
             onClose: function() {
-                alert("Anda menutup popup pembayaran.");
+                toast.error("Pembayaran dibatalkan/belum selesai");
             }
         });
 
     } catch (err: any) {
         console.error("❌ Error submit:", err);
-        alert(err.message || "Terjadi kesalahan server.");
+        toast.dismiss(loadingToast);
+        toast.error(err.message || "Terjadi kesalahan server.");
     } finally {
         setLoading(false);
     }
@@ -182,6 +183,9 @@ export default function QurbanPage() {
 
   return (
     <div className="min-h-screen bg-white font-sans">
+      {/* --- 3. TOASTER COMPONENT --- */}
+      <Toaster position="top-center" reverseOrder={false} />
+
       {/* HEADER */}
       <header className="bg-white/90 backdrop-blur border-b shadow-sm sticky top-0 z-20 w-full">
         <div className="px-4 py-4 w-full">
@@ -232,6 +236,7 @@ export default function QurbanPage() {
                     onClick={() => {
                       setSelectedPackage(item.id);
                       setExtraNames(Array(6).fill(""));
+                      toast.success(`Paket ${item.name} dipilih! Silakan isi form.`, { duration: 2000 });
                     }}
                   >
                     <CardHeader>
@@ -294,19 +299,21 @@ export default function QurbanPage() {
                     {/* Nama - Email */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <Label>Nama Lengkap</Label>
+                        <Label>Nama Lengkap <span className="text-red-500">*</span></Label>
                         <Input
                           autoComplete="off" 
                           value={form.fullName}
                           onChange={(e) => handleForm("fullName", e.target.value)}
+                          placeholder="Nama Shohibul Qurban"
                         />
                       </div>
                       <div>
-                        <Label>Email</Label>
+                        <Label>Email <span className="text-red-500">*</span></Label>
                         <Input
                           autoComplete="off"
                           value={form.email}
                           onChange={(e) => handleForm("email", e.target.value)}
+                          placeholder="email@contoh.com"
                         />
                       </div>
                     </div>
@@ -314,11 +321,12 @@ export default function QurbanPage() {
                     {/* No HP - Jumlah peserta */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <Label>No. Telepon</Label>
+                        <Label>No. Telepon <span className="text-red-500">*</span></Label>
                         <Input
                           autoComplete="off"
                           value={form.phone}
                           onChange={(e) => handleForm("phone", e.target.value)}
+                          placeholder="08..."
                         />
                       </div>
 
@@ -330,16 +338,16 @@ export default function QurbanPage() {
 
                     {/* Paket */}
                     <div>
-                      <Label>Paket Qurban</Label>
+                      <Label>Paket Qurban <span className="text-red-500">*</span></Label>
                       <select
-                        className="border rounded-md p-2 w-full"
+                        className="border rounded-md p-2 w-full bg-white"
                         value={selectedPackage ?? ""}
                         onChange={(e) => setSelectedPackage(Number(e.target.value))}
                       >
                         <option value="">Pilih paket</option>
                         {packages.map((pkg) => (
                           <option key={pkg.id} value={pkg.id}>
-                            {pkg.name}
+                            {pkg.name} - {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits:0 }).format(pkg.price)}
                           </option>
                         ))}
                       </select>
@@ -347,34 +355,37 @@ export default function QurbanPage() {
 
                     {/* Alamat */}
                     <div>
-                      <Label>Alamat</Label>
+                      <Label>Alamat Lengkap <span className="text-red-500">*</span></Label>
                       <Textarea
                         autoComplete="off"
                         value={form.address}
                         onChange={(e) => handleForm("address", e.target.value)}
                         rows={3}
+                        placeholder="Alamat domisili..."
                       />
                     </div>
 
                     {/* Catatan */}
                     <div>
-                      <Label>Catatan</Label>
+                      <Label>Catatan (Opsional)</Label>
                       <Textarea
                         value={form.notes}
                         onChange={(e) => handleForm("notes", e.target.value)}
-                        rows={3}
+                        rows={2}
+                        placeholder="Permintaan khusus pembagian daging, dll."
                       />
                     </div>
 
                     {/* Nama peserta tambahan */}
                     {isSapi && (
-                      <div>
-                        <Label>Nama peserta tambahan (jika patungan)</Label>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                      <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                        <Label className="mb-2 block font-semibold text-slate-700">Nama Peserta Tambahan (Patungan)</Label>
+                        <p className="text-xs text-slate-500 mb-3">Masukkan nama 6 orang lainnya yang ikut dalam qurban sapi ini.</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           {extraNames.map((name, idx) => (
                             <Input
                               key={idx}
-                              placeholder={`Peserta ${idx + 1}`}
+                              placeholder={`Peserta ${idx + 2}`}
                               value={name}
                               onChange={(e) =>
                                 setExtraNames((prev) => {
@@ -383,6 +394,7 @@ export default function QurbanPage() {
                                   return arr;
                                 })
                               }
+                              className="bg-white"
                             />
                           ))}
                         </div>
@@ -391,11 +403,11 @@ export default function QurbanPage() {
 
                     {/* Submit */}
                     <Button
-                      className="w-full h-11 bg-green-600 hover:bg-green-700"
+                      className="w-full h-12 bg-green-600 hover:bg-green-700 text-white font-bold text-lg shadow-lg shadow-green-100 mt-4"
                       onClick={submitForm}
                       disabled={loading}
                     >
-                      {loading ? "Memproses..." : "Daftar Sekarang"}
+                      {loading ? "Memproses..." : "Daftar Qurban Sekarang"}
                     </Button>
                   </CardContent>
                 </Card>
